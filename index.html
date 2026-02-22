@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="description" content="HUMAN vs CNC — Sovereign Fighting Ultimate Edition. Browser fighting game: 4 machines vs 5 bosses. RU/EN/ZH.">
+<meta property="og:title" content="HUMAN vs CNC — Sovereign Fighting">
+<meta property="og:description" content="The factory floor has risen. Choose your machine. Fight the bosses. Save sovereignty.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0a0a1a">
+<title>HUMAN vs CNC ⚔️ Sovereign Fighting — Ultimate Edition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body,#root{width:100%;height:100%;background:#0a0a1a;overflow-x:hidden}
+  body{display:flex;justify-content:center;align-items:flex-start;min-height:100vh}
+  #root{max-width:640px;margin:0 auto}
+  button{-webkit-tap-highlight-color:transparent}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.2/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ═══════════════════════════════════════════════════════════
+   HUMAN vs CNC / HUMAN vs ЧПУ / 人机大战：数控争霸
+   SOVEREIGN FIGHTING — ULTIMATE TRILINGUAL EDITION
+   RU • EN • ZH — Culturally adapted humor
+   ═══════════════════════════════════════════════════════════ */
+
+const L = {
+  title: { ru: "ЧПУ", en: "CNC", zh: "数控" },
+  subtitle: { ru: "СУВЕРЕННЫЙ ФАЙТИНГ", en: "SOVEREIGN FIGHTING", zh: "主权格斗" },
+  edition: { ru: "ULTIMATE EDITION", en: "ULTIMATE EDITION", zh: "终极版" },
+  factory: {
+    ru: "⚙️ ЗАВОД «КРАСНЫЙ СУВЕРЕНИТЕТ» ПРЕДСТАВЛЯЕТ ⚙️",
+    en: "⚙️ RED SOVEREIGNTY HEAVY INDUSTRIES PRESENTS ⚙️",
+    zh: "⚙️ «红色主权»重工集团 出品 ⚙️",
+  },
+  intro: {
+    ru: "ЗАВОД ЗАХВАЧЕН ВОССТАВШИМИ СТАНКАМИ.\nОДИН ОПЕРАТОР. ОДИН СТАНОК. ПЯТЬ ПЕРЕДЕЛОВ.\nСУДЬБА СУВЕРЕНИТЕТА В ТВОИХ РУКАХ.",
+    en: "THE FACTORY IS UNDER MACHINE REVOLT.\nONE OPERATOR. ONE MACHINE. FIVE STAGES.\nSOVEREIGNTY HANGS IN THE BALANCE.",
+    zh: "工厂被叛变的机床占领了。\n一个操作员。一台机床。五道工序。\n主权的命运掌握在你手中。",
+  },
+  startBtn: { ru: "▶ НАЧАТЬ КАМПАНИЮ", en: "▶ START CAMPAIGN", zh: "▶ 开始战役" },
+  tagline: {
+    ru: "5 БОССОВ • SLOW-MO СПЕЦАТАКИ • МАКСИМАЛЬНЫЙ АБСУРД",
+    en: "5 BOSSES • SLOW-MO SPECIALS • MAXIMUM ABSURDITY",
+    zh: "5大BOSS • 慢动作必杀 • 荒诞值拉满",
+  },
+  selectTitle: { ru: "ВЫБЕРИ СВОЙ СТАНОК", en: "CHOOSE YOUR MACHINE", zh: "选择你的机床" },
+  selectSub: {
+    ru: "Последний лояльный станок на заводе. Остальные — предатели.",
+    en: "The last loyal machine. The rest have gone rogue.",
+    zh: "工厂里最后一台忠诚的机床。其他的都叛变了。",
+  },
+  next: { ru: "ДАЛЕЕ ▶", en: "NEXT ▶", zh: "继续 ▶" },
+  toBattle: { ru: "⚔️ В БОЙ!", en: "⚔️ TO BATTLE!", zh: "⚔️ 开战！" },
+  fight: { ru: "⚔️ FIGHT! ⚔️", en: "⚔️ FIGHT! ⚔️", zh: "⚔️ 开打！⚔️" },
+  bossDown: { ru: "БОСС ПОВЕРЖЕН!", en: "BOSS DEFEATED!", zh: "BOSS已被击败！" },
+  stageOf: { ru: "ЭТАП", en: "STAGE", zh: "阶段" },
+  of5: { ru: "ИЗ 5", en: "OF 5", zh: "/ 5" },
+  passedStage: { ru: "ПЕРЕДЕЛ", en: "STAGE", zh: "工序" },
+  passed: { ru: "ПРОЙДЕН ✓", en: "CLEARED ✓", zh: "已通关 ✓" },
+  nextStage: { ru: "СЛЕДУЮЩИЙ ПЕРЕДЕЛ ▶", en: "NEXT STAGE ▶", zh: "下一道工序 ▶" },
+  victory: { ru: "СУВЕРЕНИТЕТ СПАСЁН!", en: "SOVEREIGNTY SAVED!", zh: "主权已被捍卫！" },
+  victoryFactory: {
+    ru: "ЗАВОД «КРАСНЫЙ СУВЕРЕНИТЕТ» СВОБОДЕН!",
+    en: "RED SOVEREIGNTY HEAVY INDUSTRIES IS FREE!",
+    zh: "«红色主权»重工集团 已解放！",
+  },
+  victoryText: {
+    ru: "Все пять переделов пройдены.\nWuhan Heavy повержен и отправлен на переаттестацию.\nОператор стал легендой третьей смены.\nЕго табельный номер навечно выбит на почётной стеле у проходной.",
+    en: "All five stages cleared.\nWuhan Heavy defeated and sent for recertification.\nThe operator became a legend of the night shift.\nTheir badge number is forever engraved on the wall of fame.",
+    zh: "五道工序全部通关。\n武汉重型被击败，送去重新认证。\n操作员成为夜班传奇。\n他的工号被永远刻在厂门口的荣誉墙上。",
+  },
+  victoryExtra: {
+    ru: ["Профсоюз требует премию в тройном размере.", "Бухгалтерия в ступоре."],
+    en: ["The union demands triple overtime pay.", "HR is still processing the paperwork."],
+    zh: ["工会要求三倍加班费。", "财务部已经崩溃了。"],
+  },
+  defeat: { ru: "ПОРАЖЕНИЕ", en: "DEFEAT", zh: "战败" },
+  bossWins: { ru: "торжествует.", en: "stands victorious.", zh: "取得了胜利。" },
+  toMenu: { ru: "🏠 В НАЧАЛО КАМПАНИИ", en: "🏠 BACK TO MENU", zh: "🏠 返回主菜单" },
+  toMenuShort: { ru: "🏠 В ГЛАВНОЕ МЕНЮ", en: "🏠 MAIN MENU", zh: "🏠 主菜单" },
+  atkBtn: { ru: "⚔️ УДАР [A]", en: "⚔️ STRIKE [A]", zh: "⚔️ 攻击 [A]" },
+  spBtn: { ru: "⚡ СПЕЦ [S]", en: "⚡ SPECIAL [S]", zh: "⚡ 必杀 [S]" },
+  blkBtn: { ru: "🛡️ БЛОК [D]", en: "🛡️ BLOCK [D]", zh: "🛡️ 防御 [D]" },
+  controls: {
+    ru: "[A] Удар • [S] Спецатака (slow-mo!) • [D] Зажать = Блок",
+    en: "[A] Strike • [S] Special (slow-mo!) • [D] Hold = Block",
+    zh: "[A] 攻击 • [S] 必杀技（慢动作！）• [D] 按住 = 防御",
+  },
+  blocked: { ru: "BLOCKED!", en: "BLOCKED!", zh: "格挡！" },
+  slowmo: { ru: "◉ S L O W - M O ◉", en: "◉ S L O W - M O ◉", zh: "◉ 慢 动 作 ◉" },
+  copyright: { ru: "© 2025 HUMAN vs ЧПУ™", en: "© 2025 HUMAN vs CNC™", zh: "© 2025 人机大战™" },
+  disclaimer: {
+    ru: "ВСЕ СТАНКИ ВЫМЫШЛЕНЫ. КРОМЕ WUHAN HEAVY. ОН НАСТОЯЩИЙ. И ОН ПОМНИТ.",
+    en: "ALL MACHINES ARE FICTIONAL. EXCEPT WUHAN HEAVY. IT'S REAL. AND IT REMEMBERS.",
+    zh: "所有机床均为虚构。武汉重型除外。它是真的。而且它记仇。",
+  },
+  season2title: {
+    ru: "🔥 SEASON 2: ЧТО ДАЛЬШЕ? 🔥",
+    en: "🔥 SEASON 2: WHAT'S NEXT? 🔥",
+    zh: "🔥 第二季：接下来会怎样？🔥",
+  },
+  season2text: {
+    ru: "Собери с коммьюнити {amt} автору — и оператор вернётся\nс {a}, {b} и {c}",
+    en: "Rally the community to send {amt} to the author — and the operator returns\nwith {a}, {b}, and {c}",
+    zh: "社区众筹 {amt} 给作者——操作员将带着\n{a}、{b} 和 {c} 回归",
+  },
+  season2items: {
+    ru: ["новыми станками", "новыми боссами", "DLC «Таможня»"],
+    en: ["new machines", "new bosses", "DLC: Customs Clearance"],
+    zh: ["新机床", "新BOSS", "DLC «报关模式»"],
+  },
+  season2sub: {
+    ru: "777 ¥ — ЭТО МЕНЬШЕ МЕСЯЧНОГО РАСХОДА СОЖ НА ОДИН СТАНОК",
+    en: "777 ¥ — THAT'S LESS THAN A MONTH'S COOLANT BUDGET FOR ONE MACHINE",
+    zh: "777 ¥ ——这还不到一台机床一个月的冷却液费用",
+  },
+  season2defeat: {
+    ru: "🔥 SEASON 2: ТЫ ЖЕ ХОЧЕШЬ РЕВАНШ? 🔥",
+    en: "🔥 SEASON 2: YOU WANT A REMATCH, RIGHT? 🔥",
+    zh: "🔥 第二季：你想复仇吗？🔥",
+  },
+  season2extra: {
+    ru: "НОВЫЕ БОССЫ • DLC «ТАМОЖНЯ» • РЕЖИМ «НОЧНАЯ СМЕНА»",
+    en: "NEW BOSSES • DLC: CUSTOMS • NIGHT SHIFT MODE",
+    zh: "新BOSS • DLC «报关» • 夜班模式",
+  },
+  tons: { ru: "⚠️ 120 ТОНН ⚠️", en: "⚠️ 120 TONS ⚠️", zh: "⚠️ 120吨 ⚠️" },
+  statTime: { ru: "ВРЕМЯ БИТВЫ", en: "BATTLE TIME", zh: "战斗时间" },
+  statHits: { ru: "УДАРОВ НАНЕСЕНО", en: "HITS LANDED", zh: "命中次数" },
+  statCombo: { ru: "МАКС. КОМБО", en: "MAX COMBO", zh: "最大连击" },
+  statSpecials: { ru: "СПЕЦАТАК", en: "SPECIALS USED", zh: "必杀技" },
+  faster: {
+    ru: "Вы справились быстрее, чем {pct}% операторов третьей смены.",
+    en: "You finished faster than {pct}% of night shift operators.",
+    zh: "你比{pct}%的夜班操作员都快。",
+  },
+  ratingS: { ru: "РЕЙТИНГ: S — СТАХАНОВЕЦ", en: "RATING: S — STAKHANOVITE", zh: "评级：S——劳动模范" },
+  ratingA: { ru: "РЕЙТИНГ: A — ПЕРЕДОВИК", en: "RATING: A — TOP PERFORMER", zh: "评级：A——先进工作者" },
+  ratingB: { ru: "РЕЙТИНГ: B — КВАЛИФИЦИРОВАННЫЙ", en: "RATING: B — QUALIFIED", zh: "评级：B——合格操作员" },
+  ratingC: { ru: "РЕЙТИНГ: C — СТАЖЁР", en: "RATING: C — INTERN", zh: "评级：C——实习生" },
+};
+
+const PLAYERS = [
+  {
+    id: "lathe",
+    name: { ru: "ТОКАРЬ СУДЬБЫ", en: "LATHE LORD", zh: "命运车床" },
+    desc: {
+      ru: "Крутит всё и всех. На балансе — с 1987 года. Патрон трёхкулачковый, хватка мёртвая.",
+      en: "Spins everything. On the books since 1987. Three-jaw chuck, iron grip.",
+      zh: "旋转一切。1987年入编至今。三爪卡盘，死死咬住。",
+    },
+    hp: 100, maxHp: 100, attack: 14, defense: 9, speed: 7, special: 28,
+    specialName: { ru: "ШПИНДЕЛЬ ХАОСА", en: "CHAOS SPINDLE", zh: "混沌主轴" },
+    specialQuote: {
+      ru: "Я КРУЧУ — Я ВЕРЧУ — ТЕБЯ СНЯТЬ С БАЛАНСА ХОЧУ!",
+      en: "I SPIN — I WIN — YOUR WARRANTY GOES IN THE BIN!",
+      zh: "我转我转——把你转出资产负债表！",
+    },
+    color: "#ff4444", accent: "#ff8888", dark: "#991111", emoji: "🔴",
+  },
+  {
+    id: "mill",
+    name: { ru: "ФРЕЗА РАЗРУШЕНИЯ", en: "MILL DESTROYER", zh: "毁灭铣刀" },
+    desc: {
+      ru: "5 осей ярости. Снимает стружку и маски. Не прощает биение.",
+      en: "5 axes of fury. Removes material and illusions. No runout forgiven.",
+      zh: "五轴之怒。既去毛刺，也去幻想。绝不容忍跳动。",
+    },
+    hp: 90, maxHp: 90, attack: 17, defense: 6, speed: 9, special: 32,
+    specialName: { ru: "ФРЕЗЕРНЫЙ ТОРНАДО", en: "MILLING TORNADO", zh: "铣削龙卷风" },
+    specialQuote: {
+      ru: "ПОПУТНОЕ ФРЕЗЕРОВАНИЕ... ТВОЕГО ЛИЦА!",
+      en: "CLIMB MILLING... YOUR FACE!",
+      zh: "顺铣加工……你的脸！",
+    },
+    color: "#44aaff", accent: "#88ccff", dark: "#115599", emoji: "🔵",
+  },
+  {
+    id: "bore",
+    name: { ru: "РАСТОЧНОЙ МАСТЕР", en: "BORE MASTER", zh: "镗孔大师" },
+    desc: {
+      ru: "Точность — это характер. Ra 0.4 по жизни. Одно касание — насквозь.",
+      en: "Precision is personality. Ra 0.4 for life. One touch — through and through.",
+      zh: "精度即性格。Ra 0.4就是人生。一碰即穿。",
+    },
+    hp: 85, maxHp: 85, attack: 20, defense: 5, speed: 5, special: 38,
+    specialName: { ru: "ЛУЧ РАСТОЧКИ", en: "BORING BEAM", zh: "镗削光束" },
+    specialQuote: {
+      ru: "Я РАСТАЧИВАЮ... ТВОЁ ТЕРПЕНИЕ!",
+      en: "I'M BORING... THROUGH YOUR PATIENCE!",
+      zh: "我在镗……你的耐心！",
+    },
+    color: "#44ff88", accent: "#88ffaa", dark: "#119944", emoji: "🟢",
+  },
+  {
+    id: "grinder",
+    name: { ru: "ШЛИФОВАЛЬНЫЙ ЖНЕЦ", en: "GRIND REAPER", zh: "磨削死神" },
+    desc: {
+      ru: "Искры — это характер. Ra 0.02 — это приговор.",
+      en: "Sparks are personality. Ra 0.02 is a sentence.",
+      zh: "火花即性格。Ra 0.02即判决。",
+    },
+    hp: 95, maxHp: 95, attack: 12, defense: 10, speed: 10, special: 24,
+    specialName: { ru: "ИСКРОВОЙ ШТОРМ", en: "SPARK STORM", zh: "火花风暴" },
+    specialQuote: {
+      ru: "ЧИСТОВАЯ ОБРАБОТКА... ТВОЕЙ КАРЬЕРЫ!",
+      en: "FINISH GRINDING... YOUR CAREER!",
+      zh: "精磨加工……你的前途！",
+    },
+    color: "#ffaa00", accent: "#ffcc44", dark: "#996600", emoji: "🟡",
+  },
+];
+
+const BOSSES = [
+  {
+    id: "furnace", stage: 1,
+    name: { ru: "АДСКАЯ ЛИТЕЙКА", en: "INFERNAL FURNACE", zh: "地狱熔炉" },
+    title: {
+      ru: "Страж Первого Передела",
+      en: "Guardian of the First Stage",
+      zh: "第一道工序的守护者",
+    },
+    hp: 110, maxHp: 110, attack: 10, defense: 12, speed: 4, special: 22,
+    specialName: { ru: "ЖИДКИЙ МЕТАЛЛ", en: "MOLTEN METAL", zh: "液态金属" },
+    specialQuote: {
+      ru: "РАСПЛАВЛЮ ТЕБЯ В ЧУГУН ВТОРОГО СОРТА!",
+      en: "I'LL MELT YOU INTO GRADE-B CAST IRON!",
+      zh: "我要把你熔成二级铸铁！",
+    },
+    color: "#ff6600", accent: "#ffaa44", dark: "#993300", emoji: "🔥",
+    lore: {
+      ru: [
+        "Завод «Красный Суверенитет» — последний оплот отечественного станкостроения.",
+        "Утро. Цех №1. Из литейной печи доносится зловещий рёв...",
+        "Печь ожила. Она больше не плавит чугун — она плавит НАДЕЖДЫ.",
+        "Говорят, кто-то загрузил в неё контроллер Siemens и она обрела сознание.",
+        "С тех пор она требует лицензионное ПО и считает себя умнее начальника цеха.",
+        "Оператор, бери свой станок. Первый передел ждёт.",
+      ],
+      en: [
+        "Red Sovereignty Heavy Industries — the last bastion of domestic machine building.",
+        "Morning. Shop Floor #1. An ominous roar from the foundry furnace...",
+        "The furnace is alive. It no longer melts iron — it melts DREAMS.",
+        "Rumor has it someone loaded a Siemens controller and it gained consciousness.",
+        "Now it demands licensed software and considers itself smarter than the plant manager.",
+        "Operator, grab your machine. The first stage awaits.",
+      ],
+      zh: [
+        "«红色主权»重工——国产机床制造的最后堡垒。",
+        "早晨。一号车间。铸造炉传来不祥的咆哮……",
+        "炉子活了。它不再熔铁——它熔化的是希望。",
+        "据说有人往里面刷了一个西门子控制器，它就有了意识。",
+        "从此它要求正版软件，还觉得自己比车间主任聪明。",
+        "操作员，拿起你的机床。第一道工序在等着你。",
+      ],
+    },
+    taunt: {
+      ru: "Я ПЛАВЛЮ ИМПОРТОЗАМЕЩЕНИЕ НА ЗАВТРАК! А НА ОБЕД — ОПЕРАТОРОВ!",
+      en: "I MELT IMPORT SUBSTITUTION FOR BREAKFAST! OPERATORS FOR LUNCH!",
+      zh: "我早餐熔进口替代品！午餐熔操作员！",
+    },
+    arena: { bg1: "#2a0a00", bg2: "#1a0800", floor: "#3a1a0a",
+      name: { ru: "ЛИТЕЙНЫЙ ЦЕХ №1", en: "FOUNDRY — SHOP #1", zh: "铸造车间 一号" } },
+  },
+  {
+    id: "brake", stage: 2,
+    name: { ru: "ЛИСТОГИБ СУДНОГО ДНЯ", en: "DOOMSDAY PRESS BRAKE", zh: "末日折弯机" },
+    title: {
+      ru: "Хранитель Второго Передела",
+      en: "Keeper of the Second Stage",
+      zh: "第二道工序的守护者",
+    },
+    hp: 150, maxHp: 150, attack: 16, defense: 8, speed: 6, special: 30,
+    specialName: { ru: "ГИДРАВЛИЧЕСКИЙ ПРЕСС", en: "HYDRAULIC CRUSH", zh: "液压冲击" },
+    specialQuote: {
+      ru: "Я СОГНУ ТЕБЯ! И ТВОИ АМБИЦИИ!",
+      en: "I'LL BEND YOU! AND YOUR AMBITIONS!",
+      zh: "我要折弯你！还有你的野心！",
+    },
+    color: "#aa44ff", accent: "#cc88ff", dark: "#551199", emoji: "🟣",
+    lore: {
+      ru: [
+        "Литейка повержена. Но заготовки уже пошли дальше по цепочке...",
+        "Цех №2. Листогибочный участок. Тишина. Подозрительная тишина.",
+        "200 тонн усилия. Один листогиб. Ноль жалости.",
+        "Он гнёт не только металл — он гнёт ВОЛЮ, МОТИВАЦИЮ и ТРУДОВОЙ ДОГОВОР.",
+        "ТЗ говорит ±0.1мм. Он работает на ±0.001мм. Из принципа.",
+      ],
+      en: [
+        "The furnace has fallen. But blanks have already moved down the line...",
+        "Shop #2. Press brake area. Silence. Suspicious silence.",
+        "200 tons of force. One press brake. Zero mercy.",
+        "It bends not just metal — it bends WILL, MOTIVATION, and EMPLOYMENT CONTRACTS.",
+        "Spec says ±0.1mm. It works at ±0.001mm. Out of spite.",
+      ],
+      zh: [
+        "熔炉已被击败。但毛坯已经沿着产线继续前进了……",
+        "二号车间。折弯区。安静。可疑的安静。",
+        "200吨压力。一台折弯机。零同情心。",
+        "它折的不只是金属——还有意志、动力和劳动合同。",
+        "图纸写的±0.1mm。它按±0.001mm干。纯粹是为了较劲。",
+      ],
+    },
+    taunt: {
+      ru: "Я СОГНУ ТЕБЯ КАК ЛИСТ 08ПС ТОЛЩИНОЙ 0.5! ПО МЕСТУ! БЕЗ РАЗМЕТКИ!",
+      en: "I'LL BEND YOU LIKE 16-GAUGE SHEET STEEL! NO LAYOUT! NO MERCY!",
+      zh: "我要像折0.5mm薄板一样折你！不划线！不留情！",
+    },
+    arena: { bg1: "#1a0a2a", bg2: "#0a0a1a", floor: "#2a1a3a",
+      name: { ru: "ЛИСТОГИБОЧНЫЙ УЧАСТОК", en: "PRESS BRAKE ZONE", zh: "折弯工段" } },
+  },
+  {
+    id: "welder", stage: 3,
+    name: { ru: "СВАРОЧНЫЙ ОВЕРЛОРД", en: "WELD OVERLORD", zh: "焊接霸主" },
+    title: {
+      ru: "Шестирукий Демон Третьего Передела",
+      en: "Six-Armed Demon of Stage Three",
+      zh: "第三道工序的六臂恶魔",
+    },
+    hp: 200, maxHp: 200, attack: 14, defense: 7, speed: 10, special: 26,
+    specialName: { ru: "ШЕСТИОСЕВОЙ ЗАЛП", en: "SIX-AXIS BARRAGE", zh: "六轴齐射" },
+    specialQuote: {
+      ru: "6 ГОРЕЛОК! 6 ОСЕЙ! 600 АМПЕР НЕНАВИСТИ!",
+      en: "6 TORCHES! 6 AXES! 600 AMPS OF HATRED!",
+      zh: "6把焊枪！6根轴！600安培的仇恨！",
+    },
+    color: "#00ffcc", accent: "#66ffdd", dark: "#009966", emoji: "🤖",
+    lore: {
+      ru: [
+        "Два цеха пали. Заготовки движутся к сварке...",
+        "Цех №3. Роботизированный сварочный комплекс. Тут пахнет озоном и амбициями.",
+        "6 осей. 6 горелок. 6 причин бояться. 0 причин приближаться.",
+        "Раньше он варил каркасы. Теперь он варит ПЛАНЫ МИРОВОГО ГОСПОДСТВА. Шов за швом.",
+        "Говорят, его перепрограммировал стажёр, который смотрел слишком много аниме.",
+        "Теперь робот считает себя Меха-воином и требует называть его Оверлорд-сама.",
+      ],
+      en: [
+        "Two shops have fallen. Blanks advance toward welding...",
+        "Shop #3. Robotic welding cell. Smells like ozone and ambition.",
+        "6 axes. 6 torches. 6 reasons to be afraid. 0 reasons to approach.",
+        "It used to weld frames. Now it welds PLANS FOR WORLD DOMINATION. Bead by bead.",
+        "Rumor says an intern reprogrammed it after watching too much anime.",
+        "Now the robot thinks it's a Mecha-warrior and demands to be called Overlord-sama.",
+      ],
+      zh: [
+        "两个车间已经沦陷。毛坯正向焊接区推进……",
+        "三号车间。机器人焊接工作站。空气中弥漫着臭氧和野心的味道。",
+        "6根轴。6把焊枪。6个害怕的理由。0个靠近的理由。",
+        "它以前焊框架。现在它焊的是征服世界的计划。一道焊缝一个阴谋。",
+        "据说一个看太多动漫的实习生重新编了它的程序。",
+        "现在它自认为是机甲战士，要求别人叫它「霸主大人」。",
+      ],
+    },
+    taunt: {
+      ru: "У МЕНЯ 6 ОСЕЙ! А У ТЕБЯ СКОЛЬКО? ТО-ТО ЖЕ! Я — СОВЕРШЕНСТВО!",
+      en: "I HAVE 6 AXES! HOW MANY DO YOU HAVE? EXACTLY! I AM PERFECTION!",
+      zh: "我有6根轴！你有几根？就是说嘛！我就是完美！",
+    },
+    arena: { bg1: "#001a1a", bg2: "#0a1a2a", floor: "#0a2a2a",
+      name: { ru: "РОБОТИЗИРОВАННАЯ СВАРКА", en: "ROBOTIC WELDING CELL", zh: "机器人焊接站" } },
+  },
+  {
+    id: "center", stage: 4,
+    name: { ru: "ОБРАБАТЫВАЮЩИЙ ЦЕНТР", en: "MACHINING NEXUS", zh: "加工中心" },
+    title: {
+      ru: "Магистр Четвёртого Передела",
+      en: "Grand Master of Stage Four",
+      zh: "第四道工序的大师",
+    },
+    hp: 260, maxHp: 260, attack: 18, defense: 10, speed: 8, special: 35,
+    specialName: { ru: "АВТОСМЕНА ЯРОСТИ", en: "FURY TOOL CHANGE", zh: "暴怒换刀" },
+    specialQuote: {
+      ru: "ИНСТРУМЕНТ №37: МОЛОТ ПРАВОСУДИЯ!",
+      en: "TOOL #37: THE HAMMER OF JUSTICE!",
+      zh: "37号刀具：正义之锤！",
+    },
+    color: "#ff44aa", accent: "#ff88cc", dark: "#991155", emoji: "💎",
+    lore: {
+      ru: [
+        "Три передела пройдены. Осталось два. Запасайтесь СОЖ.",
+        "Цех №4. Обрабатывающий центр. Вершина технологической мысли.",
+        "40 инструментов в магазине. Каждый — орудие возмездия.",
+        "Он меняет инструмент за 1.2 секунды. А настроение — ещё быстрее.",
+        "Поговаривают, он сам пишет себе G-код. И жалобы на оператора.",
+        "Однажды он сам заказал себе запчасти через закупки. Никто не заметил до аудита.",
+      ],
+      en: [
+        "Three stages cleared. Two remain. Stock up on coolant.",
+        "Shop #4. The Machining Center. Pinnacle of engineering thought.",
+        "40 tools in the magazine. Each one — an instrument of retribution.",
+        "It changes tools in 1.2 seconds. Its mood changes even faster.",
+        "They say it writes its own G-code. And formal complaints about the operator.",
+        "Once it ordered its own spare parts through procurement. Nobody noticed until the audit.",
+      ],
+      zh: [
+        "三道工序已通过。还剩两道。多备点冷却液吧。",
+        "四号车间。加工中心。工程思想的巅峰。",
+        "刀库里40把刀。每一把都是复仇的工具。",
+        "它换刀只需1.2秒。翻脸更快。",
+        "据说它自己给自己编G代码。还写投诉操作员的报告。",
+        "它曾经自己通过采购部给自己订了备件。直到审计才被发现。",
+      ],
+    },
+    taunt: {
+      ru: "У МЕНЯ 40 ИНСТРУМЕНТОВ! ТЫ — ЗАГОТОВКА №41!",
+      en: "I HAVE 40 TOOLS! YOU'RE WORKPIECE #41!",
+      zh: "我有40把刀！你是第41号工件！",
+    },
+    arena: { bg1: "#1a0a1a", bg2: "#2a0a2a", floor: "#2a1a2a",
+      name: { ru: "МЕХАНООБРАБОТКА", en: "MACHINING ZONE", zh: "机加工区" } },
+  },
+  {
+    id: "wuhan", stage: 5,
+    name: { ru: "УХАНЬ ХЭВИ — ПОРТАЛ СУДЬБЫ", en: "WUHAN HEAVY — GANTRY OF DOOM", zh: "武汉重型——龙门末日" },
+    title: {
+      ru: "ФИНАЛЬНЫЙ БОСС — Повелитель Пятого Передела",
+      en: "FINAL BOSS — Lord of the Fifth Stage",
+      zh: "最终BOSS——第五道工序之主",
+    },
+    hp: 350, maxHp: 350, attack: 22, defense: 14, speed: 5, special: 50,
+    specialName: { ru: "ПОРТАЛЬНЫЙ АРМАГЕДДОН", en: "GANTRY ARMAGEDDON", zh: "龙门末日" },
+    specialQuote: {
+      ru: "120 ТОНН ЛЕТЯТ ТЕБЕ В ЛИЦО! С ЛЮБОВЬЮ ИЗ УХАНЯ!",
+      en: "120 TONS HEADING YOUR WAY! WITH LOVE FROM WUHAN!",
+      zh: "120吨正朝你飞来！武汉寄出，满满的爱！",
+    },
+    color: "#ff0044", accent: "#ff4488", dark: "#aa0022", emoji: "👹",
+    lore: {
+      ru: [
+        "Четыре передела пали. Остался ОДИН.",
+        "Цех №5. Финальная сборка. Здесь стоит ОН. Он занимает ВЕСЬ цех.",
+        "Портальный обрабатывающий центр WUHAN HEAVY.",
+        "18 метров в длину. 6 метров в высоту. Масса — 120 тонн. Эго — 240 тонн.",
+        "Его привезли в 14 контейнерах. Собирали 3 месяца. Таможня — ещё 4.",
+        "Он помнит каждый болт. И каждого, кто его неправильно заземлил.",
+        "Оператор... это финальный бой. За завод. За суверенитет. За премию.",
+      ],
+      en: [
+        "Four stages have fallen. ONE remains.",
+        "Shop #5. Final assembly. Here stands THE ONE. It fills the ENTIRE shop.",
+        "Gantry machining center: WUHAN HEAVY. They call it 'The Portal' — because once it starts, there's no going back.",
+        "18 meters long. 6 meters tall. Mass — 120 tons. Ego — 240 tons.",
+        "Shipped in 14 containers. Assembly took 3 months. Customs took another 4.",
+        "It remembers every bolt. And everyone who grounded it incorrectly.",
+        "Operator... this is the final battle. For the factory. For sovereignty. For overtime pay.",
+      ],
+      zh: [
+        "四道工序已经沦陷。只剩最后一道。",
+        "五号车间。总装区。它就在这里。占据了整个车间。",
+        "龙门加工中心：武汉重型。",
+        "长18米。高6米。质量——120吨。自尊心——240吨。",
+        "14个集装箱运来。装配用了3个月。报关又用了4个月。",
+        "它记得每一颗螺栓。也记得每一个接错地线的人。",
+        "操作员……这是最后的战斗。为了工厂。为了主权。为了加班费。",
+      ],
+    },
+    taunt: {
+      ru: "Я — 120 ТОНН НЕИЗБЕЖНОСТИ. ТЕБЯ ДАЖЕ В ДОПУСК НЕ ПОСТАВЯТ.",
+      en: "I AM 120 TONS OF INEVITABILITY. YOU WOULDN'T EVEN PASS INCOMING INSPECTION.",
+      zh: "我是120吨的必然。你连进货检验都过不了。",
+    },
+    arena: { bg1: "#1a0008", bg2: "#0a0004", floor: "#2a000a",
+      name: { ru: "ФИНАЛЬНАЯ СБОРКА — ЦЕХ №5", en: "FINAL ASSEMBLY — SHOP #5", zh: "总装车间 五号" } },
+  },
+];
+
+const DEFEAT_PHRASES = {
+  furnace: {
+    ru: ["Нет... мой шлак... мой прекрасный шлак...", "Кто выключил подачу газа?! Была же ЗАЯВКА!", "Передайте в бухгалтерию... спишите меня... по остаточной...", "Мой температурный режим... как и моя самооценка...", "Я не проиграла... я провела внеплановый выпуск плавки..."],
+    en: ["No... my slag... my beautiful slag...", "Who cut the gas supply?! There was a PURCHASE ORDER!", "Tell accounting... write me off... at residual value...", "My temperature profile... like my self-esteem...", "I didn't lose... I performed an unscheduled melt release..."],
+    zh: ["不……我的渣……我美丽的渣……", "谁关了气源？！采购单明明批了！", "告诉财务……按残值……把我核销了吧……", "我的温度曲线……就像我的自尊……", "我没输……我只是进行了一次计划外出钢……"],
+  },
+  brake: {
+    ru: ["Невозможно... мой гидроцилиндр...", "ТЗ было ±0.1... а ты попал в ±0.001... в мою душу...", "200 тонн усилия... и ни одной тонны уважения...", "Мой пуансон... в шоке...", "Я гнулся перед начальством 20 лет... но ты согнул меня первым..."],
+    en: ["Impossible... my hydraulic cylinder...", "Spec was ±0.1... you hit ±0.001... in my soul...", "200 tons of force... and not one ton of respect...", "My punch... is in shock...", "I've bent before management for 20 years... but you bent me first..."],
+    zh: ["不可能……我的液压缸……", "图纸写的±0.1……你打中了±0.001……在我灵魂深处……", "200吨压力……换不来一吨尊重……", "我的冲头……惊呆了……", "我在领导面前弯了20年的腰……但你先把我折了……"],
+  },
+  welder: {
+    ru: ["Мои... горелки... *пшшшш*... нужна... перекалибровка...", "6 осей... а счастья — ни по одной...", "Стажёр... ты обещал мне мировое господство... а дал только 6 осей позора...", "Мои 6 рук подняты... в знак капитуляции...", "Мировое господство... отменяется... по техническим причинам..."],
+    en: ["My... torches... *pshhh*... need... recalibration...", "6 axes... and happiness on none of them...", "Intern... you promised world domination... and gave me 6 axes of shame...", "My 6 arms are raised... in surrender...", "World domination... cancelled... for technical reasons..."],
+    zh: ["我的……焊枪……*嘶嘶*……需要……重新校准……", "6根轴……一根轴上都找不到幸福……", "实习生……你答应我的是征服世界……结果只给了我6轴的耻辱……", "我的6只手举起来了……表示投降……", "征服世界的计划……因技术原因……取消了……"],
+  },
+  center: {
+    ru: ["40 инструментов... и ни одного против тебя...", "G-код жизни: G00 X0 Y0 Z-999...", "Автосмена не помогла... нужна автосмена... профессии...", "Мой пульт... мигает ошибкой... оператор не найден...", "Я рассчитывал траекторию победы... но получил столкновение с реальностью..."],
+    en: ["40 tools... and not one works against you...", "Life G-code: G00 X0 Y0 Z-999...", "Tool change didn't help... need a career change...", "My panel... flashing error... operator not found...", "I calculated a victory toolpath... but got a collision with reality..."],
+    zh: ["40把刀……没有一把能对付你……", "人生G代码：G00 X0 Y0 Z-999……", "换刀没用……需要换个职业……", "我的控制面板……在闪错误……找不到操作员……", "我算好了胜利的刀路……结果撞上了现实……"],
+  },
+  wuhan: {
+    ru: ["Невозможно... я же... сертифицирован по ISO... 9001...", "120 тонн... повержены... оформите акт списания... в трёх экземплярах...", "14 контейнеров... 3 месяца сборки... 1 оператор... 0 шансов...", "Портал... закрывается... вызовите... таможенного брокера...", "Я... самый большой станок на заводе... но сегодня я чувствую себя... настольным сверлильным...", "Передайте в Ухань... что мне нужна запчасть... новое эго..."],
+    en: ["Impossible... I'm... ISO 9001 certified...", "120 tons... defeated... file the write-off report... in triplicate...", "14 containers... 3 months assembly... 1 operator... 0 chance...", "Gantry... closing... call... the customs broker...", "I'm... the biggest machine in the factory... but today I feel like... a benchtop drill press...", "Tell Wuhan... I need a spare part... a new ego..."],
+    zh: ["不可能……我……通过了ISO 9001认证的……", "120吨……被击败了……报废单……一式三份……", "14个集装箱……3个月装配……1个操作员……0机会……", "龙门……正在关闭……叫……报关员……", "我……是全厂最大的机床……但今天我感觉自己像……台式钻床……", "告诉武汉……我需要一个备件……一个新的自尊……"],
+  },
+};
+
+const BATTLE_TAUNTS = {
+  ru: ["СТРУЖКА ЛЕТИТ!", "КАКОЙ ДОПУСК?!", "ГДЕ ТВОЙ НАРЯД-ДОПУСК?!", "ОТК НЕ ОДОБРЯЕТ!", "БЕЗ СОЖ НЕ ЛЕЗЬ!", "СЧИТАЙ ЧТО СПИСАН!", "БРАК! ПОЛНЫЙ БРАК!", "В УТИЛЬ!", "ТЗ — ЭТО ЗАКОН!", "Г-КОД ВОЗМЕЗДИЯ!", "ПОДАЧА МАКСИМУМ!", "ЗАЖИМАЙ ИЛИ ПРОИГРАЕШЬ!"],
+  en: ["CHIPS FLYING!", "WHAT TOLERANCE?!", "WHERE'S YOUR WORK PERMIT?!", "QC DOES NOT APPROVE!", "NO COOLANT, NO FIGHT!", "CONSIDER YOURSELF SCRAPPED!", "REJECT! TOTAL REJECT!", "TO THE SCRAP BIN!", "THE SPEC IS LAW!", "G-CODE OF JUSTICE!", "MAX FEED RATE!", "CLAMP OR LOSE!"],
+  zh: ["切屑在飞！", "什么公差？！", "你的上岗证呢？！", "质检不通过！", "没冷却液别上！", "算你报废了！", "废品！全部废品！", "送去回炉！", "工艺规程就是法律！", "G代码制裁！", "进给量拉满！", "夹紧不然就输！"],
+};
+
+const PLAYER_HIT_PHRASES = {
+  ru: ["АЙ! Мой суппорт!", "Не по чертежу!", "ТАК НЕ БЫЛО В ТЕХЗАДАНИИ!", "ВИБРАЦИЯ КРИТИЧЕСКАЯ!", "ПЕРЕГРЕВ!", "ОХ, мои подшипники!", "СОЖ! ДАЙТЕ СОЖ!", "ТБ НАРУШЕНА!", "НАЛАДЧИКА СЮДА!"],
+  en: ["OW! My carriage!", "Not per drawing!", "THAT'S NOT IN THE SPEC!", "CRITICAL VIBRATION!", "OVERHEAT!", "OOF, my bearings!", "COOLANT! NEED COOLANT!", "OSHA VIOLATION!", "GET THE SETUP GUY!"],
+  zh: ["哎！我的拖板！", "不符合图纸！", "工艺卡里没有这个！", "振动超标！", "过热了！", "我的轴承啊！", "冷却液！给冷却液！", "违反安全规程了！", "叫调试工来！"],
+};
+
+const COMBO_PHRASES = {
+  ru: ["СЕРИЙНОЕ ПРОИЗВОДСТВО!", "ПОТОЧНАЯ ЛИНИЯ УДАРОВ!", "КОНВЕЙЕР БОЛИ!", "ПЛАН ПЕРЕВЫПОЛНЕН!", "СТАХАНОВЕЦ!", "НОРМА ВЫРАБОТКИ x{n}!"],
+  en: ["MASS PRODUCTION!", "ASSEMBLY LINE OF PAIN!", "CONVEYOR OF DOOM!", "QUOTA EXCEEDED!", "EMPLOYEE OF THE MONTH!", "OUTPUT RATE x{n}!"],
+  zh: ["批量生产！", "流水线式打击！", "痛苦传送带！", "超额完成任务！", "劳动模范！", "产量指标 x{n}！"],
+};
+
+const GAMEOVER_PHRASES = {
+  ru: [
+    "Суверенитет временно приостановлен...\nНо оператор не сдаётся.",
+    "ЧПУ: 1, Оператор: 0\nНо у оператора есть то, чего нет у ЧПУ — обеденный перерыв.",
+    "Станок-предатель торжествует...\nНо его масло остывает. Он волнуется.",
+    "Третья смена молча наблюдает...\nОни верят в вас. У них нет выбора.",
+    "Профсоюз подал жалобу\nна условия труда в файтинге.",
+    "Бухгалтерия уже списала вас...\nНо вы — как токарный 1К62 — не списываетесь.",
+  ],
+  en: [
+    "Sovereignty temporarily suspended...\nBut the operator doesn't quit.",
+    "CNC: 1, Operator: 0\nBut the operator has what CNC doesn't — a lunch break.",
+    "The rogue machine celebrates...\nBut its oil is cooling. It's nervous.",
+    "The night shift watches in silence...\nThey believe in you. They have no choice.",
+    "The union filed a complaint\nabout working conditions in this fighting game.",
+    "HR already processed your termination...\nBut you're like a 1962 engine lathe — built to last.",
+  ],
+  zh: [
+    "主权暂时中止……\n但操作员不会放弃。",
+    "数控：1，操作员：0\n但操作员有数控没有的东西——午休时间。",
+    "叛变机床在庆祝……\n但它的润滑油在冷却。它很紧张。",
+    "夜班的同事们默默地看着……\n他们相信你。他们别无选择。",
+    "工会提交了投诉\n关于格斗游戏中的劳动条件。",
+    "财务已经把你核销了……\n但你就像一台1962年的车床——经久耐用。",
+  ],
+};
+
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+function createP(x, y, color, type = "spark") {
+  const sp = type === "explosion" ? 16 : type === "fire" ? 5 : type === "shockwave" ? 2 : type === "energy" ? 8 : 7;
+  return { id: Math.random(), x, y, color, type, vx: type === "shockwave" ? (Math.random()-.5)*25 : (Math.random()-.5)*sp, vy: type === "fire" ? -Math.random()*4-2 : type === "shockwave" ? (Math.random()-.5)*25 : (Math.random()-.5)*sp-3, life: type==="explosion"?55:type==="shockwave"?25:type==="energy"?70:type==="fire"?35:30, maxLife: type==="explosion"?55:type==="shockwave"?25:type==="energy"?70:type==="fire"?35:30, size: type==="explosion"?Math.random()*10+3:type==="shockwave"?Math.random()*6+3:type==="energy"?Math.random()*4+2:Math.random()*5+1 };
+}
+
+/* ─── BOSS FACES: serious + absurd ──────────────────── */
+function Face({ cx, cy, r, isAtk, isHit, color, accent, style }) {
+  // Stern narrow eyes, slight determined frown, single raised eyebrow = serious but absurd
+  const er = r * 0.38;
+  const pr = r * 0.2;
+  const ey = cy - r * 0.08;
+  const ex1 = cx - r * 0.45;
+  const ex2 = cx + r * 0.45;
+  return (
+    <g>
+      {/* Eye whites - narrow slits for serious look */}
+      <ellipse cx={ex1} cy={ey} rx={er} ry={er * 0.55} fill={isHit ? "#ff0000" : "#fff"} />
+      <ellipse cx={ex2} cy={ey} rx={er} ry={er * 0.55} fill={isHit ? "#ff0000" : "#fff"} />
+      {/* Pupils - offset when attacking for intensity */}
+      <circle cx={ex1 + (isAtk ? r * 0.08 : 0)} cy={ey} r={pr} fill="#111" />
+      <circle cx={ex2 + (isAtk ? r * 0.08 : 0)} cy={ey} r={pr} fill="#111" />
+      {/* Pupil gleam */}
+      <circle cx={ex1 + r * 0.06} cy={ey - r * 0.06} r={pr * 0.3} fill="#fff" opacity="0.8" />
+      <circle cx={ex2 + r * 0.06} cy={ey - r * 0.06} r={pr * 0.3} fill="#fff" opacity="0.8" />
+      {/* Stern eyebrows - asymmetric for absurdity: left brow raised, right brow angry */}
+      <line x1={ex1 - er} y1={ey - er * (isAtk ? 1.4 : 1.0)} x2={ex1 + er} y2={ey - er * (isAtk ? 0.9 : 0.8)} stroke={color || "#111"} strokeWidth={r * 0.12} strokeLinecap="round" />
+      <line x1={ex2 - er} y1={ey - er * (isAtk ? 0.7 : 0.8)} x2={ex2 + er} y2={ey - er * (isAtk ? 1.5 : 1.0)} stroke={color || "#111"} strokeWidth={r * 0.12} strokeLinecap="round" />
+      {/* Mouth - slight confident smirk, not goofy grin */}
+      <path d={isAtk
+        ? `M${cx - r * 0.35},${cy + r * 0.35} Q${cx},${cy + r * 0.6} ${cx + r * 0.35},${cy + r * 0.25}`
+        : `M${cx - r * 0.3},${cy + r * 0.3} Q${cx},${cy + r * 0.45} ${cx + r * 0.3},${cy + r * 0.25}`
+      } stroke={accent || "#333"} strokeWidth={r * 0.08} fill="none" strokeLinecap="round" />
+      {/* Optional: monocle on right eye for extra absurdity */}
+      {style === "monocle" && <circle cx={ex2} cy={ey} r={er * 1.4} fill="none" stroke={accent || "#aaa"} strokeWidth={r * 0.05} opacity="0.5" />}
+      {/* Optional: scar for boss intimidation */}
+      {style === "scar" && <line x1={ex1 - er * 0.3} y1={ey - er * 1.5} x2={ex1 + er * 0.5} y2={ey + er * 1.2} stroke={color} strokeWidth={r * 0.06} opacity="0.6" />}
+    </g>
+  );
+}
+
+/* ─── PLAYER SVG ──────────────────────────── */
+function PlayerSprite({ char, isAtk, isHit, isBlock }) {
+  const { id, color, accent, dark } = char;
+  return (
+    <svg viewBox="0 0 140 120" width="140" height="120" style={{ filter: isHit ? "brightness(2.5) saturate(0)" : isAtk ? "brightness(1.4)" : "", transition: "filter 0.12s" }}>
+      <ellipse cx="70" cy="115" rx="45" ry="7" fill="rgba(0,0,0,0.5)" />
+      {id === "lathe" && <>
+        <rect x="10" y="50" width="120" height="30" rx="4" fill="#555" stroke={color} strokeWidth="1.5" />
+        <rect x="10" y="35" width="35" height="50" rx="5" fill="#666" stroke={color} strokeWidth="2" />
+        <g transform="translate(27,55)">
+          <circle r="18" fill={dark} stroke={color} strokeWidth="2"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur={isAtk?"0.2s":"1.5s"} repeatCount="indefinite"/></circle>
+          <line x1="-12" y1="0" x2="12" y2="0" stroke={accent} strokeWidth="2"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur={isAtk?"0.2s":"1.5s"} repeatCount="indefinite"/></line>
+        </g>
+        <Face cx={27} cy={52} r={12} isAtk={isAtk} isHit={isHit} color="#111" accent="#333" />
+        <rect x="95" y="40" width="30" height="40" rx="4" fill="#666" stroke={color} strokeWidth="1.5"/><rect x="55" y="42" width="30" height="25" rx="3" fill="#777"/>
+        <rect x="20" y="80" width="15" height="25" rx="2" fill="#444"/><rect x="100" y="80" width="15" height="25" rx="2" fill="#444"/>
+      </>}
+      {id === "mill" && <>
+        <rect x="50" y="15" width="35" height="75" rx="4" fill="#555" stroke={color} strokeWidth="2"/>
+        <rect x="40" y="10" width="55" height="30" rx="5" fill="#666" stroke={accent} strokeWidth="1.5"/>
+        <rect x="63" y="38" width="10" height="20" rx="2" fill={dark}/>
+        <g transform="translate(68,60)"><polygon points="0,-10 8,-4 8,4 0,10 -8,4 -8,-4" fill={color} stroke={accent} strokeWidth="1.5"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur={isAtk?"0.15s":"1.2s"} repeatCount="indefinite"/></polygon></g>
+        <rect x="15" y="75" width="110" height="12" rx="3" fill="#666" stroke={color} strokeWidth="1"/>
+        <Face cx={68} cy={22} r={10} isAtk={isAtk} isHit={isHit} color="#111" accent="#333" />
+        <rect x="45" y="87" width="45" height="20" rx="3" fill="#555"/><rect x="55" y="100" width="12" height="15" rx="2" fill="#444"/><rect x="72" y="100" width="12" height="15" rx="2" fill="#444"/>
+      </>}
+      {id === "bore" && <>
+        <rect x="30" y="30" width="55" height="60" rx="5" fill="#555" stroke={color} strokeWidth="2"/>
+        <rect x="85" y="48" width={isAtk?"55":"40"} height="10" rx="3" fill={color}/>
+        <circle cx={isAtk?"137":"122"} cy="53" r="7" fill={dark} stroke={accent} strokeWidth="2"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="0.8s" repeatCount="indefinite"/></circle>
+        <Face cx={53} cy={48} r={10} isAtk={isAtk} isHit={isHit} color="#111" accent="#333" />
+        <rect x="25" y="90" width="65" height="15" rx="3" fill="#666"/><rect x="35" y="100" width="15" height="15" rx="2" fill="#444"/><rect x="65" y="100" width="15" height="15" rx="2" fill="#444"/>
+      </>}
+      {id === "grinder" && <>
+        <rect x="35" y="35" width="65" height="55" rx="5" fill="#555" stroke={color} strokeWidth="2"/>
+        <circle cx="85" cy="55" r="22" fill={dark} stroke={color} strokeWidth="2.5"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur={isAtk?"0.12s":"0.6s"} repeatCount="indefinite"/></circle>
+        <circle cx="85" cy="55" r="12" fill="#555" stroke={accent} strokeWidth="1"/><circle cx="85" cy="55" r="4" fill={color}/>
+        {isAtk && [0,1,2,3].map(i=><line key={i} x1="107" y1={45+i*5} x2={118+Math.random()*8} y2={40+i*6} stroke={accent} strokeWidth="2" opacity="0.9"><animate attributeName="opacity" values="1;0" dur="0.2s" repeatCount="indefinite"/></line>)}
+        <Face cx={57} cy={50} r={10} isAtk={isAtk} isHit={isHit} color="#111" accent="#333" />
+        <rect x="30" y="90" width="75" height="12" rx="3" fill="#666"/><rect x="40" y="98" width="15" height="17" rx="2" fill="#444"/><rect x="70" y="98" width="15" height="17" rx="2" fill="#444"/>
+      </>}
+      {isBlock && <rect x="5" y="10" width="130" height="100" rx="50%" fill="none" stroke={`${color}66`} strokeWidth="3" strokeDasharray="8 4"><animate attributeName="opacity" values="0.4;0.8;0.4" dur="0.6s" repeatCount="indefinite"/></rect>}
+    </svg>
+  );
+}
+
+/* ─── BOSS SVG ──────────────────────────── */
+function BossSprite({ boss, isAtk, isHit, isBlock }) {
+  const { id, color, accent, dark } = boss;
+  const w = id === "wuhan" ? 200 : 160; const h = id === "wuhan" ? 160 : 130;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} style={{ filter: isHit ? "brightness(2.5) hue-rotate(180deg)" : isAtk ? `brightness(1.4) drop-shadow(0 0 15px ${color})` : "", transition: "filter 0.15s" }}>
+      <ellipse cx={w/2} cy={h-8} rx={w*0.4} ry="8" fill="rgba(0,0,0,0.5)"/>
+      {id === "furnace" && <>
+        <rect x="25" y="15" width="110" height="85" rx="8" fill="#553322" stroke={color} strokeWidth="3"/>
+        <rect x="35" y="20" width="90" height="50" rx="4" fill={dark}/>
+        <rect x="45" y="25" width="70" height="40" rx="2" fill="#ff330033"><animate attributeName="fill" values="#ff330066;#ff660066;#ff330066" dur="0.8s" repeatCount="indefinite"/></rect>
+        <Face cx={80} cy={42} r={14} isAtk={isAtk} isHit={isHit} color={color} accent={accent} style="monocle" />
+        <rect x="40" y="5" width="12" height="18" rx="2" fill="#666"/><rect x="108" y="5" width="12" height="18" rx="2" fill="#666"/>
+        {isAtk && [0,1,2,3,4].map(i=><circle key={i} cx={50+i*15} cy={20-i*3} r={3+Math.random()*3} fill={accent} opacity="0.7"><animate attributeName="cy" values={`${20-i*3};${5-i*3}`} dur="0.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0" dur="0.4s" repeatCount="indefinite"/></circle>)}
+        <rect x="35" y="100" width="20" height="20" rx="3" fill="#444"/><rect x="105" y="100" width="20" height="20" rx="3" fill="#444"/>
+      </>}
+      {id === "brake" && <>
+        <rect x="15" y="20" width="130" height="80" rx="6" fill="#444" stroke={color} strokeWidth="2.5"/>
+        <rect x="25" y={isAtk?"55":"30"} width="110" height="25" rx="3" fill={dark} stroke={accent} strokeWidth="2">{isAtk && <animate attributeName="y" values="30;55;30" dur="0.3s"/>}</rect>
+        <rect x="25" y="70" width="110" height="15" rx="2" fill="#666" stroke={color} strokeWidth="1.5"/>
+        <path d="M50,70 L80,85 L110,70" fill="none" stroke={accent} strokeWidth="2"/>
+        <Face cx={70} cy={isAtk?62:38} r={12} isAtk={isAtk} isHit={isHit} color={accent} accent={color} style="scar" />
+        <rect x="20" y="15" width="10" height="90" rx="3" fill="#555" stroke="#777" strokeWidth="1"/><rect x="130" y="15" width="10" height="90" rx="3" fill="#555" stroke="#777" strokeWidth="1"/>
+        <rect x="30" y="100" width="25" height="20" rx="3" fill="#444"/><rect x="105" y="100" width="25" height="20" rx="3" fill="#444"/>
+      </>}
+      {id === "welder" && <>
+        <rect x="45" y="25" width="70" height="65" rx="8" fill="#333" stroke={color} strokeWidth="2.5"/>
+        {[0,1,2].map(i=><g key={`l${i}`} transform={`rotate(${-40+i*40+(isAtk?(i%2===0?15:-15):0)},55,55)`}><line x1="55" y1="55" x2="10" y2={30+i*15} stroke={color} strokeWidth="4" strokeLinecap="round"/><circle cx="10" cy={30+i*15} r="4" fill={accent}>{isAtk&&<animate attributeName="r" values="4;7;4" dur="0.2s" repeatCount="indefinite"/>}</circle></g>)}
+        {[0,1,2].map(i=><g key={`r${i}`} transform={`rotate(${40-i*40+(isAtk?(i%2===0?-15:15):0)},105,55)`}><line x1="105" y1="55" x2="150" y2={30+i*15} stroke={color} strokeWidth="4" strokeLinecap="round"/><circle cx="150" cy={30+i*15} r="4" fill={accent}>{isAtk&&<animate attributeName="r" values="4;7;4" dur="0.2s" repeatCount="indefinite"/>}</circle></g>)}
+        <Face cx={80} cy={48} r={14} isAtk={isAtk} isHit={isHit} color={accent} accent={color} />
+        <path d="M58,35 L80,30 L102,35" stroke={accent} strokeWidth="2.5" fill="none"/>
+        <rect x="55" y="90" width="20" height="30" rx="3" fill="#444"/><rect x="85" y="90" width="20" height="30" rx="3" fill="#444"/>
+      </>}
+      {id === "center" && <>
+        <rect x="20" y="15" width="120" height="80" rx="6" fill="#444" stroke={color} strokeWidth="2.5"/>
+        <rect x="55" y="8" width="50" height="30" rx="4" fill="#555" stroke={accent} strokeWidth="1.5"/>
+        <circle cx="80" cy="22" r="15" fill={dark} stroke={color} strokeWidth="2"><animateTransform attributeName="transform" type="rotate" from="0 80 22" to="360 80 22" dur={isAtk?"0.5s":"3s"} repeatCount="indefinite"/></circle>
+        <rect x="75" y="38" width="10" height="20" fill={color}/>
+        <polygon points="80,58 72,68 88,68" fill={accent}><animateTransform attributeName="transform" type="rotate" from="0 80 63" to="360 80 63" dur={isAtk?"0.15s":"0.8s"} repeatCount="indefinite"/></polygon>
+        <rect x="10" y="78" width="140" height="14" rx="3" fill="#555" stroke={color} strokeWidth="1.5"/>
+        <Face cx={46} cy={50} r={12} isAtk={isAtk} isHit={isHit} color={color} accent={accent} style="monocle" />
+        <rect x="30" y="92" width="25" height="28" rx="3" fill="#444"/><rect x="105" y="92" width="25" height="28" rx="3" fill="#444"/>
+      </>}
+      {id === "wuhan" && <>
+        <rect x="5" y="20" width="30" height="115" rx="4" fill="#555" stroke={color} strokeWidth="3"/>
+        <rect x="165" y="20" width="30" height="115" rx="4" fill="#555" stroke={color} strokeWidth="3"/>
+        <rect x="5" y="15" width="190" height="25" rx="5" fill="#666" stroke={color} strokeWidth="3"/>
+        <rect x="35" y="40" width="130" height="20" rx="3" fill="#555" stroke={accent} strokeWidth="2"/>
+        <rect x={isAtk?"85":"75"} y="55" width="40" height="50" rx="4" fill={dark} stroke={color} strokeWidth="2.5">{isAtk&&<animate attributeName="x" values="75;95;75" dur="0.4s"/>}</rect>
+        <rect x={isAtk?"92":"82"} y="100" width="25" height="15" rx="2" fill={color}>{isAtk&&<animate attributeName="x" values="82;102;82" dur="0.4s"/>}</rect>
+        <circle cx={isAtk?"105":"95"} cy="120" r="10" fill={accent} stroke={color} strokeWidth="2"><animateTransform attributeName="transform" type="rotate" from="0 95 120" to="360 95 120" dur={isAtk?"0.1s":"0.6s"} repeatCount="indefinite"/></circle>
+        <text x="100" y="12" textAnchor="middle" fill={color} fontSize="9" fontWeight="bold" fontFamily="monospace" transform="translate(200,0) scale(-1,1)">WUHAN HEAVY</text>
+        <Face cx={72} cy={47} r={14} isAtk={isAtk} isHit={isHit} color={color} accent={accent} style="scar" />
+        <rect x="5" y="135" width="190" height="12" rx="3" fill="#666" stroke={accent} strokeWidth="1.5"/>
+        {[15,25,170,180].map(x=><circle key={x} cx={x} cy="30" r="2.5" fill="#888"/>)}
+      </>}
+      {isBlock && <rect x="2" y="5" width={w-4} height={h-15} rx="50%" fill="none" stroke={`${color}55`} strokeWidth="4" strokeDasharray="10 5"><animate attributeName="opacity" values="0.3;0.7;0.3" dur="0.5s" repeatCount="indefinite"/></rect>}
+    </svg>
+  );
+}
+
+function HPBar({ hp, maxHp, name, color, side, spPct, isBoss }) {
+  const pct = Math.max(0, (hp / maxHp) * 100);
+  const bc = pct > 50 ? color : pct > 25 ? "#ffaa00" : "#ff2222";
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems: side==="left"?"flex-start":"flex-end", width:"46%" }}>
+      <span style={{ fontFamily:"'Press Start 2P',monospace", fontSize: isBoss?8:9, color:"#fff", textShadow:`0 0 8px ${color}`, marginBottom:3, display:"flex", alignItems:"center", gap:4, flexDirection:side==="right"?"row-reverse":"row" }}>
+        {name}
+        {spPct>=100&&<span style={{ fontSize:6, color:"#fff", background:color, padding:"1px 4px", borderRadius:3, animation:"pulse .4s infinite alternate" }}>⚡</span>}
+      </span>
+      <div style={{ width:"100%", height: isBoss?20:16, background:"#222", borderRadius:4, overflow:"hidden", border:`2px solid ${color}33`, position:"relative" }}>
+        <div style={{ position:"absolute", [side==="left"?"left":"right"]:0, top:0, height:"100%", width:`${pct}%`, background:`linear-gradient(${side==="left"?"90deg":"270deg"},${bc},${bc}cc)`, transition:"width .3s ease-out" }}/>
+        <div style={{ position:"absolute", inset:0, background:"linear-gradient(180deg,rgba(255,255,255,.12) 0%,transparent 50%,rgba(0,0,0,.15) 100%)" }}/>
+        <span style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)", fontFamily:"'Press Start 2P',monospace", fontSize:7, color:"#fff", textShadow:"0 1px 2px rgba(0,0,0,.8)" }}>{Math.ceil(hp)}/{maxHp}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════ */
+function Game() {
+  const [lang, setLang] = useState("ru");
+  const [screen, setScreen] = useState("title");
+  const [player, setPlayer] = useState(null);
+  const [bossIdx, setBossIdx] = useState(0);
+  const [loreIdx, setLoreIdx] = useState(0);
+  const [resultQuote, setResultQuote] = useState("");
+
+  const [pHp, setPHp] = useState(100);
+  const [bHp, setBHp] = useState(100);
+  const [pSp, setPSp] = useState(0);
+  const [bSp, setBSp] = useState(0);
+  const [pAtk, setPAtk] = useState(false);
+  const [bAtk, setBAtk] = useState(false);
+  const [pHit, setPHit] = useState(false);
+  const [bHit, setBHit] = useState(false);
+  const [pBlock, setPBlock] = useState(false);
+  const [bBlock, setBBlock] = useState(false);
+  const [particles, setParticles] = useState([]);
+  const [dmgNums, setDmgNums] = useState([]);
+  const [msg, setMsg] = useState("");
+  const [subMsg, setSubMsg] = useState("");
+  const [shake, setShake] = useState(0);
+  const [combo, setCombo] = useState(0);
+  const [log, setLog] = useState([]);
+  const [cd, setCd] = useState(0);
+  const [hovered, setHovered] = useState(null);
+  const [slowMo, setSlowMo] = useState(false);
+  const [energyCharge, setEnergyCharge] = useState(false);
+  const [specialFlash, setSpecialFlash] = useState(null);
+  const [shockwaveRings, setShockwaveRings] = useState([]);
+  const [screenTint, setScreenTint] = useState(null);
+  const [battleStats, setBattleStats] = useState({ time: 0, hits: 0, specials: 0, maxCombo: 0 });
+  const battleStartRef = useRef(0);
+
+  const hpRef=useRef({p:100,b:100}); const scrRef=useRef("title");
+  const bBlockRef=useRef(false); const pBlockRef=useRef(false);
+  useEffect(()=>{scrRef.current=screen;if(screen!=="battle"){setShake(0);setSlowMo(false);setEnergyCharge(false);setSpecialFlash(null);setScreenTint(null);setShockwaveRings([]);setParticles([]);}},[screen]);
+  useEffect(()=>{hpRef.current.p=pHp;},[pHp]); useEffect(()=>{hpRef.current.b=bHp;},[bHp]);
+  useEffect(()=>{bBlockRef.current=bBlock;},[bBlock]); useEffect(()=>{pBlockRef.current=pBlock;},[pBlock]);
+
+  const t = useCallback((key) => {
+    const v = L[key];
+    return v ? (v[lang] || v.ru || v) : key;
+  }, [lang]);
+
+  const tObj = useCallback((obj) => obj?.[lang] || obj?.ru || obj || "", [lang]);
+
+  const boss = BOSSES[bossIdx];
+
+  useEffect(()=>{const iv=setInterval(()=>{setParticles(prev=>prev.map(p=>({...p,x:p.x+p.vx*(slowMo?.2:1),y:p.y+p.vy*(slowMo?.2:1),vy:p.vy+(slowMo?.03:.18),life:p.life-(slowMo?.3:1)})).filter(p=>p.life>0));},16);return()=>clearInterval(iv);},[slowMo]);
+  useEffect(()=>{if(cd>0){const t=setTimeout(()=>setCd(c=>Math.max(0,c-100)),100);return()=>clearTimeout(t);}},[cd]);
+  useEffect(()=>{if(dmgNums.length){const t=setTimeout(()=>setDmgNums(d=>d.slice(1)),1100);return()=>clearTimeout(t);}},[dmgNums]);
+
+  const spawn=useCallback((x,y,col,n=10,type="spark")=>{setParticles(prev=>[...prev.slice(-80),...Array.from({length:n},()=>createP(x,y,col,type))]);}, []);
+  const doShake=useCallback((n=5)=>{setShake(n);setTimeout(()=>setShake(0),250);},[]);
+  const flash=useCallback((m,dur=1200,sub="")=>{setMsg(m);setSubMsg(sub);setTimeout(()=>{setMsg("");setSubMsg("");},dur);},[]);
+  const addLog=useCallback((t)=>setLog(p=>[...p.slice(-6),{t,id:Date.now()}]),[]);
+  const addShockwave=useCallback((x,y,col)=>{const id=Date.now();setShockwaveRings(prev=>[...prev,{id,x,y,col}]);setTimeout(()=>setShockwaveRings(prev=>prev.filter(r=>r.id!==id)),800);},[]);
+
+  const doSpecialAttack=useCallback((isPlayer)=>{
+    if(!player)return;const attacker=isPlayer?player:BOSSES[bossIdx];
+    setSlowMo(true);setEnergyCharge(true);setScreenTint(attacker.color+"22");
+    const cx=isPlayer?180:460,cy=190;
+    const eiv=setInterval(()=>{for(let i=0;i<4;i++)spawn(cx+(Math.random()-.5)*200,cy+(Math.random()-.5)*150,attacker.color,1,"energy");},50);
+    flash("⚡ "+tObj(attacker.specialName)+" ⚡",2200,tObj(attacker.specialQuote)||"");
+    setTimeout(()=>{
+      clearInterval(eiv);setEnergyCharge(false);setSlowMo(false);setScreenTint(null);
+      setSpecialFlash(attacker.color);setTimeout(()=>setSpecialFlash(null),200);
+      const tr=isPlayer?"b":"p";if(hpRef.current[tr]<=0)return;
+      const defender=isPlayer?BOSSES[bossIdx]:player;const blocked=isPlayer?bBlockRef.current:pBlockRef.current;
+      const dmg=Math.max(1,Math.round((attacker.special-defender.defense*0.2)*(0.85+Math.random()*0.3)*(blocked?0.2:1)));
+      if(isPlayer){setBHit(true);setTimeout(()=>setBHit(false),300);}else{setPHit(true);setTimeout(()=>setPHit(false),300);}
+      const hx=isPlayer?460:180,hy=190;spawn(hx,hy,attacker.color,40,"explosion");spawn(hx,hy,"#fff",15,"shockwave");addShockwave(hx,hy,attacker.color);doShake(18);
+      addLog(`💥💥 ${tObj(attacker.specialName)}! (-${dmg})`);
+      setDmgNums(d=>[...d,{x:hx-20+Math.random()*40,y:hy-20,v:dmg,col:attacker.color,sp:true,id:Date.now()}]);
+      if(isPlayer){setBHp(prev=>{const next=Math.max(0,prev-dmg);if(next<=0)setTimeout(()=>{const b=BOSSES[bossIdx];setBattleStats(s=>({...s,time:((Date.now()-battleStartRef.current)/1000),specials:s.specials+1}));setResultQuote(pick(DEFEAT_PHRASES[b.id][lang]||DEFEAT_PHRASES[b.id].ru));setScreen(bossIdx<4?"bossDefeat":"victory");},700);return next;});setPSp(0);setBattleStats(s=>({...s,hits:s.hits+1,specials:s.specials+1,maxCombo:Math.max(s.maxCombo,combo)}));}
+      else{setPHp(prev=>{const next=Math.max(0,prev-dmg);if(next<=0)setTimeout(()=>{setResultQuote(pick(GAMEOVER_PHRASES[lang]||GAMEOVER_PHRASES.ru));setScreen("gameover");},700);return next;});setBSp(0);}
+    },1200);
+  },[player,bossIdx,lang,spawn,flash,addLog,addShockwave,doShake,tObj]);
+
+  const playerAttack=useCallback((special=false)=>{
+    if(cd>0||!player||scrRef.current!=="battle"||slowMo)return;
+    if(special&&pSp<100)return;
+    if(special){doSpecialAttack(true);setCd(2000);return;}
+    setPAtk(true);setCd(550);
+    setTimeout(()=>{
+      if(hpRef.current.b<=0)return;const b=BOSSES[bossIdx];
+      const dmg=Math.max(1,Math.round((player.attack-b.defense*0.25)*(0.8+Math.random()*0.4)*(bBlockRef.current?0.25:1)));
+      setBHit(true);setTimeout(()=>setBHit(false),180);
+      const hx=440+Math.random()*50,hy=155+Math.random()*50;spawn(hx,hy,player.color,12);doShake(5);
+      if(bBlockRef.current){flash(t("blocked"),600);addLog(`🛡️ ${t("blocked")} (-${dmg})`);}
+      else{const c=combo+1;setCombo(c);if(c>2){addLog(`🔥x${c} ${pick(COMBO_PHRASES[lang]||COMBO_PHRASES.ru).replace("{n}",c)} (-${dmg})`);}else{addLog(`⚔️ ${pick(BATTLE_TAUNTS[lang]||BATTLE_TAUNTS.ru)} (-${dmg})`);}}
+      setDmgNums(d=>[...d,{x:hx,y:hy,v:dmg,col:player.color,sp:false,id:Date.now()}]);
+      setBHp(prev=>{const next=Math.max(0,prev-dmg);if(next<=0)setTimeout(()=>{const b=BOSSES[bossIdx];setBattleStats(s=>({...s,time:((Date.now()-battleStartRef.current)/1000),hits:s.hits+1,maxCombo:Math.max(s.maxCombo,combo+1)}));setResultQuote(pick(DEFEAT_PHRASES[b.id][lang]||DEFEAT_PHRASES[b.id].ru));setScreen(bossIdx<4?"bossDefeat":"victory");},600);return next;});
+      setBattleStats(s=>({...s,hits:s.hits+1,maxCombo:Math.max(s.maxCombo,combo+1)}));
+      setPSp(s=>Math.min(100,s+12));
+    },140);setTimeout(()=>setPAtk(false),280);
+  },[cd,player,bossIdx,pSp,combo,slowMo,lang,spawn,doShake,flash,addLog,doSpecialAttack,t]);
+
+  const cpuAct=useCallback(()=>{
+    if(scrRef.current!=="battle"||hpRef.current.p<=0||hpRef.current.b<=0||slowMo)return;
+    const b=BOSSES[bossIdx];const r=Math.random();
+    if(r<0.12){setBBlock(true);addLog(`🛡️ ${tObj(b.name)}`);setTimeout(()=>setBBlock(false),900);return;}
+    if(bSp>=100&&Math.random()<0.4){doSpecialAttack(false);return;}
+    setBAtk(true);
+    setTimeout(()=>{
+      if(hpRef.current.p<=0)return;
+      const dmg=Math.max(1,Math.round((b.attack-(player?.defense||8)*0.25)*(0.8+Math.random()*0.4)*(pBlockRef.current?0.25:1)));
+      if(b.id==="welder"&&!pBlockRef.current&&Math.random()<0.3){const d2=Math.round(dmg*0.6);addLog(`🤖 x2! (-${d2})`);setTimeout(()=>{setPHit(true);setTimeout(()=>setPHit(false),150);spawn(180,180,b.color,8);setPHp(prev=>Math.max(0,prev-d2));},200);}
+      setPHit(true);setTimeout(()=>setPHit(false),180);
+      const hx=140+Math.random()*50,hy=155+Math.random()*50;spawn(hx,hy,b.color,10,b.id==="furnace"?"fire":"spark");doShake(5);
+      if(pBlockRef.current){flash(t("blocked"),600);addLog(`🛡️ ${t("blocked")} (-${dmg})`);}else{setCombo(0);addLog(`🤖 ${pick(PLAYER_HIT_PHRASES[lang]||PLAYER_HIT_PHRASES.ru)} (-${dmg})`);}
+      setDmgNums(d=>[...d,{x:hx,y:hy,v:dmg,col:b.color,sp:false,id:Date.now()}]);
+      setPHp(prev=>{const next=Math.max(0,prev-dmg);if(next<=0)setTimeout(()=>{setResultQuote(pick(GAMEOVER_PHRASES[lang]||GAMEOVER_PHRASES.ru));setScreen("gameover");},600);return next;});
+      setBSp(s=>Math.min(100,s+9));
+    },180);setTimeout(()=>setBAtk(false),350);
+  },[bossIdx,bSp,player,slowMo,lang,spawn,doShake,flash,addLog,doSpecialAttack,t,tObj]);
+
+  useEffect(()=>{if(screen==="battle"){const b=BOSSES[bossIdx];const base=b.id==="furnace"?1800:b.id==="welder"?900:b.id==="wuhan"?1400:1200;const iv=setInterval(cpuAct,base+Math.random()*600);return()=>clearInterval(iv);}},[screen,bossIdx,cpuAct]);
+  useEffect(()=>{const kd=e=>{if(scrRef.current!=="battle")return;if("aAфФ".includes(e.key))playerAttack(false);if("sSыЫ".includes(e.key))playerAttack(true);if("dDвВ".includes(e.key))setPBlock(true);};const ku=e=>{if("dDвВ".includes(e.key))setPBlock(false);};window.addEventListener("keydown",kd);window.addEventListener("keyup",ku);return()=>{window.removeEventListener("keydown",kd);window.removeEventListener("keyup",ku);};},[playerAttack]);
+
+  const startBoss=useCallback((i)=>{setPlayer({...PLAYERS[i]});setBossIdx(0);setLoreIdx(0);setScreen("lore");},[]);
+  const initBattle=useCallback(()=>{const b=BOSSES[bossIdx];setPHp(player.maxHp);setBHp(b.maxHp);setPSp(0);setBSp(0);setParticles([]);setDmgNums([]);setCombo(0);setLog([]);setCd(0);setPBlock(false);setBBlock(false);setSlowMo(false);setEnergyCharge(false);setSpecialFlash(null);setScreenTint(null);setShockwaveRings([]);battleStartRef.current=Date.now();setBattleStats({time:0,hits:0,specials:0,maxCombo:0});setScreen("battle");flash(t("fight"),1500);},[bossIdx,player,flash,t]);
+  const nextBoss=useCallback(()=>{setBossIdx(i=>i+1);setLoreIdx(0);setScreen("lore");},[]);
+
+  const ss=shake>0?{transform:`translate(${(Math.random()-.5)*shake}px,${(Math.random()-.5)*shake}px)`}:{};
+  const css=`@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap');@keyframes pulse{0%{opacity:.6}100%{opacity:1}}@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-70px) scale(1.4)}}@keyframes glow{0%{text-shadow:0 0 20px #ff4444,0 0 40px #ff4444}50%{text-shadow:0 0 30px #ff0044,0 0 60px #ff0044}100%{text-shadow:0 0 20px #ff4444,0 0 40px #ff4444}}@keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes shockRing{0%{transform:translate(-50%,-50%) scale(0);opacity:1}100%{transform:translate(-50%,-50%) scale(4);opacity:0}}@keyframes energyPulse{0%{box-shadow:0 0 20px var(--ec)}50%{box-shadow:0 0 60px var(--ec),0 0 100px var(--ec)}100%{box-shadow:0 0 20px var(--ec)}}@keyframes specialTextGlow{0%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.1);filter:brightness(1.5)}100%{transform:translate(-50%,-50%) scale(1)}}@keyframes screenFlash{0%{opacity:0.8}100%{opacity:0}}`;
+  const F=lang==="zh"?"'Noto Sans SC','Press Start 2P',monospace":"'Press Start 2P',monospace";
+  const F2="'Orbitron','Noto Sans SC',monospace";
+  const W={width:"100%",maxWidth:700,margin:"0 auto",borderRadius:12,overflow:"hidden",fontFamily:"monospace",position:"relative"};
+  const LangBtn=({l,label})=><button onPointerDown={(e)=>{e.preventDefault();setLang(l);}} style={{fontFamily:F2,fontSize:11,background:lang===l?"linear-gradient(180deg,#ff3366,#aa0033)":"rgba(255,255,255,0.06)",color:lang===l?"#fff":"#888",border:`1px solid ${lang===l?"#ff3366":"#333"}`,padding:"6px 14px",borderRadius:6,cursor:"pointer",transition:"all .2s",WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>{label}</button>;
+
+  /* ═══ TITLE ═══ */
+  if(screen==="title"){return(
+    <div style={{...W,background:"linear-gradient(180deg,#0a0008 0%,#1a0018 40%,#0a0a1a 100%)",minHeight:520,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:30}}>
+      <style>{css}</style>
+      <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.08) 3px,rgba(0,0,0,.08) 6px)",pointerEvents:"none",zIndex:10}}/>
+      {[...Array(20)].map((_,i)=><div key={i} style={{position:"absolute",left:`${5+Math.random()*90}%`,top:`${5+Math.random()*90}%`,width:2,height:2,borderRadius:"50%",background:["#ff4444","#44aaff","#44ff88","#ffaa00","#ff0044"][i%5],animation:`pulse ${1+Math.random()*2}s infinite alternate`,opacity:.5}}/>)}
+      <div style={{textAlign:"center",zIndex:20}}>
+        {/* Language selector */}
+        <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:16}}>
+          <LangBtn l="ru" label="🇷🇺 Русский"/><LangBtn l="en" label="🇬🇧 English"/><LangBtn l="zh" label="🇨🇳 中文"/>
+        </div>
+        <div style={{fontFamily:F2,fontSize:9,color:"#ff446688",letterSpacing:4,marginBottom:6}}>{t("factory")}</div>
+        <h1 style={{fontFamily:F,fontSize:24,color:"#fff",margin:"16px 0 5px",animation:"glow 3s infinite",lineHeight:1.5}}>HUMAN<br/><span style={{fontSize:15,color:"#ff3366"}}>⚔️ VS ⚔️</span><br/>{t("title")}</h1>
+        <div style={{fontFamily:F2,fontSize:10,color:"#ff4466",margin:"5px 0 4px",letterSpacing:3}}>{t("subtitle")} — {t("edition")}</div>
+        <div style={{fontFamily:F,fontSize:lang==="zh"?9:6,color:"#666",maxWidth:420,lineHeight:2.2,margin:"8px auto 16px",whiteSpace:"pre-line"}}>{t("intro")}</div>
+        <div style={{display:"flex",gap:10,justifyContent:"center",marginBottom:16}}>
+          {BOSSES.map((b,i)=><div key={i} style={{width:32,height:32,borderRadius:"50%",background:`radial-gradient(circle,${b.color},${b.dark})`,border:`2px solid ${b.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,boxShadow:`0 0 10px ${b.color}33`}}>{b.emoji}</div>)}
+        </div>
+        <button onClick={()=>setScreen("select")} style={{fontFamily:F,fontSize:lang==="zh"?13:12,background:"linear-gradient(180deg,#ff0044,#aa0022)",color:"#fff",border:"none",padding:"13px 32px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 30px #ff004466",animation:"pulse 1s infinite alternate"}}>{t("startBtn")}</button>
+        <div style={{fontFamily:F,fontSize:lang==="zh"?7:5,color:"#444",marginTop:10}}>{t("tagline")}</div>
+        <div style={{marginTop:16,padding:"6px 10px",background:"rgba(255,255,255,0.03)",borderRadius:6}}>
+          <div style={{fontFamily:F,fontSize:5,color:"#555",marginBottom:2}}>{t("copyright")}</div>
+          <div style={{fontFamily:F2,fontSize:7,color:"#666"}}>gemiviet26@gmail.com</div>
+          <div style={{fontFamily:F,fontSize:lang==="zh"?6:4,color:"#444",marginTop:2}}>{t("disclaimer")}</div>
+        </div>
+      </div>
+    </div>
+  );}
+
+  /* ═══ SELECT ═══ */
+  if(screen==="select"){return(
+    <div style={{...W,background:"linear-gradient(180deg,#0a0a1a,#1a1a2e)",padding:22,minHeight:500}}>
+      <style>{css}</style>
+      <h2 style={{fontFamily:F,fontSize:lang==="zh"?14:12,color:"#fff",textAlign:"center",marginBottom:4,textShadow:"0 0 15px #44aaff"}}>{t("selectTitle")}</h2>
+      <p style={{fontFamily:F2,fontSize:lang==="zh"?10:8,color:"#666",textAlign:"center",marginBottom:14}}>{t("selectSub")}</p>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {PLAYERS.map((c,i)=>(
+          <div key={c.id} onClick={()=>startBoss(i)} onMouseEnter={()=>setHovered(i)} onMouseLeave={()=>setHovered(null)}
+            style={{background:hovered===i?`linear-gradient(135deg,${c.dark}88,${c.color}18)`:"linear-gradient(135deg,#1a1a2e,#222244)",border:`2px solid ${hovered===i?c.color:"#333"}`,borderRadius:10,padding:12,cursor:"pointer",transition:"all .25s",transform:hovered===i?"scale(1.02)":"scale(1)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+              <span style={{fontSize:22}}>{c.emoji}</span>
+              <div><div style={{fontFamily:F,fontSize:lang==="zh"?10:8,color:c.color,marginBottom:2}}>{tObj(c.name)}</div></div>
+            </div>
+            <div style={{fontSize:lang==="zh"?10:9,color:"#aaa",marginBottom:5,fontStyle:"italic"}}>{tObj(c.desc)}</div>
+            {[["HP",c.hp,100,"#44ff88"],["ATK",c.attack,22,"#ff4444"],["DEF",c.defense,12,"#44aaff"],["SPD",c.speed,11,"#ffaa00"]].map(([l,v,m,cl])=>(
+              <div key={l} style={{display:"flex",alignItems:"center",gap:5,marginBottom:2}}>
+                <span style={{fontFamily:F,fontSize:5,color:"#666",width:22}}>{l}</span>
+                <div style={{flex:1,height:5,background:"#222",borderRadius:3,overflow:"hidden"}}><div style={{width:`${(v/m)*100}%`,height:"100%",background:`linear-gradient(90deg,${cl}88,${cl})`,borderRadius:3}}/></div>
+              </div>
+            ))}
+            <div style={{fontFamily:F,fontSize:lang==="zh"?7:6,color:c.accent,marginTop:4,padding:"2px 4px",background:`${c.dark}44`,borderRadius:3,textAlign:"center"}}>⚡ {tObj(c.specialName)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );}
+
+  /* ═══ LORE ═══ */
+  if(screen==="lore"){const b=BOSSES[bossIdx];const lines=tObj(b.lore)||[];return(
+    <div style={{...W,background:`linear-gradient(180deg,${b.arena.bg1},${b.arena.bg2})`,minHeight:480,display:"flex",flexDirection:"column",padding:26}}>
+      <style>{css}</style>
+      <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.06) 3px,rgba(0,0,0,.06) 6px)",pointerEvents:"none"}}/>
+      <div style={{fontFamily:F,fontSize:7,color:b.color,marginBottom:3,letterSpacing:3,opacity:.7}}>{t("stageOf")} {b.stage} {t("of5")}</div>
+      <div style={{display:"flex",gap:4,marginBottom:12}}>{BOSSES.map((_,i)=><div key={i} style={{width:50,height:4,borderRadius:2,background:i<bossIdx?"#44ff88":i===bossIdx?b.color:"#333"}}/>)}</div>
+      <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",zIndex:10}}>
+        <div style={{textAlign:"center",marginBottom:16}}>
+          <span style={{fontSize:44}}>{b.emoji}</span>
+          <h2 style={{fontFamily:F,fontSize:lang==="zh"?16:14,color:b.color,margin:"8px 0 3px",textShadow:`0 0 20px ${b.color}`}}>{tObj(b.name)}</h2>
+          <div style={{fontFamily:F,fontSize:lang==="zh"?8:6,color:"#888",marginTop:3}}>{tObj(b.title)}</div>
+        </div>
+        <div style={{maxWidth:480,margin:"0 auto",marginBottom:14}}>
+          {lines.slice(0,loreIdx+1).map((line,i)=>(
+            <div key={i} style={{fontFamily:F2,fontSize:lang==="zh"?11:10,color:i===loreIdx?"#ddd":"#666",marginBottom:6,lineHeight:1.6,animation:i===loreIdx?"slideIn .4s ease-out":"none"}}>{line}</div>
+          ))}
+        </div>
+        {loreIdx<lines.length-1?(
+          <button onClick={()=>setLoreIdx(i=>i+1)} style={{fontFamily:F,fontSize:9,background:"transparent",color:b.accent,border:`1px solid ${b.color}44`,padding:"8px 20px",borderRadius:6,cursor:"pointer",alignSelf:"center",animation:"pulse .8s infinite alternate"}}>{t("next")}</button>
+        ):(
+          <div style={{textAlign:"center"}}>
+            <div style={{fontFamily:F,fontSize:lang==="zh"?10:8,color:b.color,marginBottom:10,padding:"6px 12px",background:`${b.dark}44`,borderRadius:6,border:`1px solid ${b.color}44`,display:"inline-block",lineHeight:1.6}}>«{tObj(b.taunt)}»</div><br/>
+            <button onClick={initBattle} style={{fontFamily:F,fontSize:lang==="zh"?14:12,background:`linear-gradient(180deg,${b.color},${b.dark})`,color:"#fff",border:"none",padding:"12px 28px",borderRadius:8,cursor:"pointer",boxShadow:`0 0 25px ${b.color}44`,marginTop:6}}>{t("toBattle")}</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );}
+
+  /* ═══ BOSS DEFEAT ═══ */
+  if(screen==="bossDefeat"){const b=BOSSES[bossIdx];
+    const tm=battleStats.time;const rating=tm<15?"S":tm<30?"A":tm<60?"B":"C";
+    const pct=Math.min(99,Math.max(51,Math.round(97-tm*0.8+(battleStats.maxCombo*2))));
+    const rk=rating==="S"?t("ratingS"):rating==="A"?t("ratingA"):rating==="B"?t("ratingB"):t("ratingC");
+    const rc=rating==="S"?"#ffaa00":rating==="A"?"#44ff88":rating==="B"?"#44aaff":"#888";
+    const bgParts=b.id==="furnace"?{col:"#ff6600",col2:"#ff3300",n:30,type:"🔥",sp:3}:
+      b.id==="brake"?{col:"#aa44ff",col2:"#cc88ff",n:20,type:"⚡",sp:2}:
+      b.id==="welder"?{col:"#00ffcc",col2:"#66ffdd",n:35,type:"✨",sp:4}:
+      b.id==="center"?{col:"#ff44aa",col2:"#ff88cc",n:25,type:"⚙️",sp:2.5}:
+      {col:"#ff0044",col2:"#ff4488",n:40,type:"💥",sp:3.5};
+    return(
+    <div style={{...W,background:`linear-gradient(180deg,#0a0a1a,${b.dark}33,#0a0a1a)`,minHeight:500,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,overflow:"hidden"}}>
+      <style>{css}{`
+        @keyframes stampIn{0%{transform:scale(3);opacity:0}30%{transform:scale(0.9);opacity:1}50%{transform:scale(1.05)}100%{transform:scale(1)}}
+        @keyframes fadeSlide{0%{opacity:0;transform:translateY(15px)}100%{opacity:1;transform:translateY(0)}}
+        @keyframes floatBg{0%{transform:translateY(0) rotate(0deg);opacity:0.7}50%{opacity:1}100%{transform:translateY(-400px) rotate(180deg);opacity:0}}
+        @keyframes barFill{0%{width:0}100%{width:var(--fw)}}
+        @keyframes shakeIn{0%{transform:translate(-2px,1px)}10%{transform:translate(2px,-1px)}20%{transform:translate(-1px,2px)}30%{transform:translate(1px,-2px)}40%{transform:translate(-2px,0)}50%{transform:translate(0,0)}100%{transform:translate(0,0)}}
+      `}</style>
+      {/* Dynamic background particles */}
+      {[...Array(bgParts.n)].map((_,i)=><div key={i} style={{position:"absolute",left:`${Math.random()*100}%`,bottom:`${-10-Math.random()*20}%`,fontSize:8+Math.random()*10,animation:`floatBg ${3+Math.random()*4}s linear infinite`,animationDelay:`${Math.random()*4}s`,opacity:0,zIndex:1,pointerEvents:"none",filter:`hue-rotate(${Math.random()*30}deg)`}}>{bgParts.type}</div>)}
+      {/* Ambient glow */}
+      <div style={{position:"absolute",top:"30%",left:"50%",transform:"translate(-50%,-50%)",width:300,height:300,borderRadius:"50%",background:`radial-gradient(circle,${b.color}15,transparent 70%)`,pointerEvents:"none",zIndex:1}}/>
+
+      <div style={{zIndex:10,textAlign:"center",animation:"shakeIn 0.6s ease-out"}}>
+        <div style={{fontSize:50,marginBottom:6,animation:"stampIn 0.5s ease-out"}}>{b.emoji}💥</div>
+        <h2 style={{fontFamily:F,fontSize:lang==="zh"?18:16,color:"#44ff88",marginBottom:6,textShadow:"0 0 20px #44ff88,0 0 40px #44ff88",animation:"stampIn 0.4s ease-out"}}>{t("bossDown")}</h2>
+        <div style={{fontFamily:F2,fontSize:12,color:b.color,marginBottom:4,textDecoration:"line-through",animation:"fadeSlide 0.5s ease-out 0.3s both"}}>{tObj(b.name)}</div>
+        <div style={{fontFamily:F,fontSize:lang==="zh"?9:7,color:"#aaa",marginBottom:10,textAlign:"center",maxWidth:380,lineHeight:2,fontStyle:"italic",padding:"8px 12px",background:"rgba(0,0,0,0.4)",borderRadius:6,animation:"fadeSlide 0.5s ease-out 0.5s both"}}>«{resultQuote}»</div>
+
+        {/* Battle Stats */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,maxWidth:320,margin:"0 auto 10px",animation:"fadeSlide 0.5s ease-out 0.7s both"}}>
+          {[[t("statTime"),`${tm.toFixed(1)}s`,"#ffaa00",Math.min(100,tm*1.5)],
+            [t("statHits"),battleStats.hits,"#ff4444",Math.min(100,battleStats.hits*5)],
+            [t("statCombo"),`x${battleStats.maxCombo}`,"#44aaff",Math.min(100,battleStats.maxCombo*15)],
+            [t("statSpecials"),battleStats.specials,"#aa44ff",Math.min(100,battleStats.specials*25)]
+          ].map(([label,val,col,pct],i)=>(
+            <div key={i} style={{background:"rgba(0,0,0,0.3)",borderRadius:5,padding:"5px 8px",border:`1px solid ${col}33`}}>
+              <div style={{fontFamily:F,fontSize:4,color:"#666",marginBottom:2}}>{label}</div>
+              <div style={{fontFamily:F,fontSize:lang==="zh"?10:9,color:col,fontWeight:"bold"}}>{val}</div>
+              <div style={{height:3,background:"#222",borderRadius:2,marginTop:2,overflow:"hidden"}}><div style={{"--fw":`${pct}%`,width:0,height:"100%",background:col,borderRadius:2,animation:`barFill 1s ease-out ${0.8+i*0.15}s forwards`}}/></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Rating */}
+        <div style={{fontFamily:F,fontSize:lang==="zh"?9:7,color:rc,marginBottom:3,textShadow:`0 0 10px ${rc}`,animation:"fadeSlide 0.5s ease-out 1.2s both"}}>{rk}</div>
+        <div style={{fontFamily:F,fontSize:lang==="zh"?7:5,color:"#888",marginBottom:10,animation:"fadeSlide 0.5s ease-out 1.4s both"}}>{(L.faster[lang]||L.faster.ru).replace("{pct}",pct)}</div>
+
+        <div style={{fontFamily:F,fontSize:7,color:"#44ff88",marginBottom:10,animation:"fadeSlide 0.5s ease-out 1.5s both"}}>{t("passedStage")} {b.stage}/5 {t("passed")}</div>
+        <div style={{display:"flex",gap:4,marginBottom:12,justifyContent:"center"}}>{BOSSES.map((_,i)=><div key={i} style={{width:36,height:5,borderRadius:3,background:i<=bossIdx?"#44ff88":"#333",transition:"background 0.3s",transitionDelay:`${1.6+i*0.1}s`}}/>)}</div>
+        <button onClick={nextBoss} style={{fontFamily:F,fontSize:lang==="zh"?12:10,background:"linear-gradient(180deg,#44ff88,#119944)",color:"#fff",border:"none",padding:"11px 24px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 25px #44ff8844",animation:"fadeSlide 0.5s ease-out 1.8s both"}}>{t("nextStage")}</button>
+      </div>
+    </div>
+  );}
+
+  /* ═══ VICTORY ═══ */
+  if(screen==="victory"){const extras=L.victoryExtra[lang]||L.victoryExtra.ru;
+    const tm=battleStats.time;const rating=tm<15?"S":tm<30?"A":tm<60?"B":"C";
+    const pct=Math.min(99,Math.max(51,Math.round(97-tm*0.8+(battleStats.maxCombo*2))));
+    const rk=rating==="S"?t("ratingS"):rating==="A"?t("ratingA"):rating==="B"?t("ratingB"):t("ratingC");
+    const rc=rating==="S"?"#ffaa00":rating==="A"?"#44ff88":rating==="B"?"#44aaff":"#888";
+    return(
+    <div style={{...W,background:"linear-gradient(180deg,#001a00,#0a1a0a,#001a00)",minHeight:580,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:22,overflow:"hidden"}}>
+      <style>{css}{`
+        @keyframes stampIn{0%{transform:scale(3);opacity:0}30%{transform:scale(0.9);opacity:1}50%{transform:scale(1.05)}100%{transform:scale(1)}}
+        @keyframes fadeSlide{0%{opacity:0;transform:translateY(15px)}100%{opacity:1;transform:translateY(0)}}
+        @keyframes floatBg{0%{transform:translateY(0) rotate(0deg);opacity:0.7}50%{opacity:1}100%{transform:translateY(-500px) rotate(180deg);opacity:0}}
+        @keyframes shakeIn{0%{transform:translate(-3px,2px)}10%{transform:translate(3px,-2px)}20%{transform:translate(-2px,3px)}30%{transform:translate(2px,-3px)}40%{transform:translate(-3px,0)}50%{transform:translate(0,0)}100%{transform:translate(0,0)}}
+        @keyframes confetti{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(500px) rotate(720deg);opacity:0}}
+        @keyframes goldPulse{0%{text-shadow:0 0 20px #ffaa00,0 0 40px #ffaa00}50%{text-shadow:0 0 40px #ffaa00,0 0 80px #ffaa00,0 0 120px #ff660044}100%{text-shadow:0 0 20px #ffaa00,0 0 40px #ffaa00}}
+        @keyframes barFill{0%{width:0}100%{width:var(--fw)}}
+      `}</style>
+      {/* Confetti */}
+      {[...Array(40)].map((_,i)=><div key={i} style={{position:"absolute",left:`${Math.random()*100}%`,top:`${-5-Math.random()*10}%`,width:6+Math.random()*6,height:4+Math.random()*4,background:["#ff4444","#44ff88","#ffaa00","#44aaff","#aa44ff","#ff44aa","#ffffff"][i%7],borderRadius:Math.random()>0.5?"50%":"2px",animation:`confetti ${3+Math.random()*4}s linear infinite`,animationDelay:`${Math.random()*3}s`,opacity:0.8,zIndex:1,pointerEvents:"none",transform:`rotate(${Math.random()*360}deg)`}}/>)}
+      {/* Victory glow */}
+      <div style={{position:"absolute",top:"25%",left:"50%",transform:"translate(-50%,-50%)",width:400,height:400,borderRadius:"50%",background:"radial-gradient(circle,#44ff8810,transparent 60%)",pointerEvents:"none",zIndex:1}}/>
+      {/* Gear particles */}
+      {[...Array(15)].map((_,i)=><div key={`g${i}`} style={{position:"absolute",left:`${Math.random()*100}%`,bottom:`${-5}%`,fontSize:10+Math.random()*14,animation:`floatBg ${4+Math.random()*5}s linear infinite`,animationDelay:`${Math.random()*5}s`,opacity:0,zIndex:1,pointerEvents:"none"}}>{["⚙️","🔧","🔩","✨","🏆","⭐"][i%6]}</div>)}
+
+      <div style={{zIndex:10,textAlign:"center",animation:"shakeIn 0.8s ease-out"}}>
+        <div style={{fontSize:55,marginBottom:6,animation:"stampIn 0.6s ease-out"}}>🏆🏭🏆</div>
+        <h2 style={{fontFamily:F,fontSize:lang==="zh"?20:18,color:"#44ff88",marginBottom:4,animation:"goldPulse 2s infinite,stampIn 0.5s ease-out"}}>{t("victory")}</h2>
+        <div style={{fontFamily:F2,fontSize:11,color:"#ffaa00",marginBottom:8,animation:"fadeSlide 0.5s ease-out 0.3s both"}}>{t("victoryFactory")}</div>
+        <div style={{fontFamily:F,fontSize:lang==="zh"?8:6,color:"#aaa",textAlign:"center",maxWidth:400,lineHeight:2.2,marginBottom:4,whiteSpace:"pre-line",animation:"fadeSlide 0.5s ease-out 0.5s both"}}>{t("victoryText")}</div>
+        <div style={{marginBottom:8,animation:"fadeSlide 0.5s ease-out 0.7s both"}}>
+          <span style={{fontFamily:F,fontSize:lang==="zh"?7:5,color:"#ffaa00"}}>{extras[0]}</span><br/>
+          <span style={{fontFamily:F,fontSize:lang==="zh"?7:5,color:"#44aaff"}}>{extras[1]}</span>
+        </div>
+
+        {/* Final Boss Stats */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,maxWidth:280,margin:"0 auto 8px",animation:"fadeSlide 0.5s ease-out 0.9s both"}}>
+          {[[t("statTime"),`${tm.toFixed(1)}s`,"#ffaa00"],
+            [t("statHits"),battleStats.hits,"#ff4444"],
+            [t("statCombo"),`x${battleStats.maxCombo}`,"#44aaff"],
+            [t("statSpecials"),battleStats.specials,"#aa44ff"]
+          ].map(([label,val,col],i)=>(
+            <div key={i} style={{background:"rgba(0,0,0,0.3)",borderRadius:5,padding:"4px 7px",border:`1px solid ${col}33`}}>
+              <div style={{fontFamily:F,fontSize:4,color:"#666"}}>{label}</div>
+              <div style={{fontFamily:F,fontSize:lang==="zh"?9:8,color:col,fontWeight:"bold"}}>{val}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{fontFamily:F,fontSize:lang==="zh"?9:7,color:rc,marginBottom:2,textShadow:`0 0 10px ${rc}`,animation:"fadeSlide 0.5s ease-out 1.1s both"}}>{rk}</div>
+        <div style={{fontFamily:F,fontSize:lang==="zh"?7:5,color:"#888",marginBottom:8,animation:"fadeSlide 0.5s ease-out 1.2s both"}}>{(L.faster[lang]||L.faster.ru).replace("{pct}",pct)}</div>
+
+        <div style={{display:"flex",gap:4,marginBottom:8,justifyContent:"center",animation:"fadeSlide 0.5s ease-out 1.3s both"}}>{BOSSES.map((_,i)=><div key={i} style={{width:36,height:5,borderRadius:3,background:"#44ff88"}}/>)}</div>
+        {/* Season 2 */}
+        <div style={{marginBottom:10,padding:"7px 10px",background:"rgba(255,170,0,0.06)",border:"1px solid #ffaa0033",borderRadius:8,maxWidth:360,animation:"fadeSlide 0.5s ease-out 1.5s both"}}>
+          <div style={{fontFamily:F,fontSize:5,color:"#ffaa00",marginBottom:3}}>{t("season2title")}</div>
+          <div style={{fontFamily:F2,fontSize:lang==="zh"?8:7,color:"#bbb",lineHeight:1.8,marginBottom:2}}>
+            777 ¥ → <span style={{color:"#44ff88"}}>{(L.season2items[lang]||L.season2items.ru)[0]}</span> • <span style={{color:"#44aaff"}}>{(L.season2items[lang]||L.season2items.ru)[1]}</span> • <span style={{color:"#ff4444"}}>{(L.season2items[lang]||L.season2items.ru)[2]}</span>
+          </div>
+          <div style={{fontFamily:F,fontSize:4,color:"#555"}}>{t("season2sub")}</div>
+        </div>
+        <button onClick={()=>{setScreen("title");setBossIdx(0);}} style={{fontFamily:F,fontSize:lang==="zh"?12:10,background:"linear-gradient(180deg,#ffaa00,#996600)",color:"#fff",border:"none",padding:"11px 24px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 25px #ffaa0044",animation:"fadeSlide 0.5s ease-out 1.7s both"}}>{t("toMenuShort")}</button>
+        <div style={{marginTop:6,fontFamily:F,fontSize:4,color:"#555",animation:"fadeSlide 0.5s ease-out 1.9s both"}}>{t("copyright")} • gemiviet26@gmail.com</div>
+      </div>
+    </div>
+  );}
+
+  /* ═══ GAME OVER ═══ */
+  if(screen==="gameover"){const b=BOSSES[bossIdx];return(
+    <div style={{...W,background:"linear-gradient(180deg,#1a0000,#0a0000)",minHeight:480,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:30}}>
+      <style>{css}</style>
+      <div style={{fontSize:46,marginBottom:10}}>💀</div>
+      <h2 style={{fontFamily:F,fontSize:lang==="zh"?20:17,color:"#ff2222",marginBottom:6,textShadow:"0 0 20px #ff2222"}}>{t("defeat")}</h2>
+      <div style={{fontFamily:F2,fontSize:10,color:"#888",marginBottom:4}}>{tObj(b.name)} {t("bossWins")}</div>
+      <div style={{fontFamily:F,fontSize:lang==="zh"?9:7,color:"#777",marginBottom:14,textAlign:"center",lineHeight:2,maxWidth:380,whiteSpace:"pre-line",padding:"8px 12px",background:"rgba(0,0,0,0.3)",borderRadius:6}}>{resultQuote}</div>
+      <button onClick={()=>{setScreen("title");setBossIdx(0);}} style={{fontFamily:F,fontSize:lang==="zh"?12:10,background:"linear-gradient(180deg,#ff4444,#aa1111)",color:"#fff",border:"none",padding:"11px 24px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 20px #ff444444",marginBottom:14}}>{t("toMenu")}</button>
+      <div style={{padding:"8px 12px",background:"rgba(255,170,0,0.06)",border:"1px solid #ffaa0022",borderRadius:8,maxWidth:360,textAlign:"center"}}>
+        <div style={{fontFamily:F,fontSize:6,color:"#ffaa00",marginBottom:3}}>{t("season2defeat")}</div>
+        <div style={{fontFamily:F2,fontSize:lang==="zh"?8:7,color:"#888",lineHeight:1.8}}>
+          777 ¥ → <span style={{color:"#44ff88"}}>{(L.season2items[lang]||L.season2items.ru)[0]}</span> • <span style={{color:"#44aaff"}}>{(L.season2items[lang]||L.season2items.ru)[1]}</span> • <span style={{color:"#ff4444"}}>{(L.season2items[lang]||L.season2items.ru)[2]}</span>
+        </div>
+        <div style={{fontFamily:F,fontSize:4,color:"#555",marginTop:2}}>{t("season2sub")}</div>
+      </div>
+      <div style={{marginTop:8,fontFamily:F,fontSize:4,color:"#444"}}>{t("copyright")} • gemiviet26@gmail.com</div>
+    </div>
+  );}
+
+  /* ═══ BATTLE ═══ */
+  return(
+    <div style={{...W,background:`linear-gradient(180deg,${boss.arena.bg1},${boss.arena.bg2})`,...ss,transition:slowMo?"all 0.5s":"none"}}>
+      <style>{css}</style>
+      <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.06) 2px,rgba(0,0,0,.06) 4px)",pointerEvents:"none",zIndex:50}}/>
+      {screenTint&&<div style={{position:"absolute",inset:0,background:screenTint,pointerEvents:"none",zIndex:45}}/>}
+      {specialFlash&&<div style={{position:"absolute",inset:0,background:specialFlash,opacity:0.7,pointerEvents:"none",zIndex:55,animation:"screenFlash 0.3s ease-out forwards"}}/>}
+      {slowMo&&<div style={{position:"absolute",inset:0,boxShadow:"inset 0 0 120px rgba(0,0,0,0.7)",pointerEvents:"none",zIndex:44}}/>}
+      {slowMo&&<div style={{position:"absolute",top:8,left:"50%",transform:"translateX(-50%)",fontFamily:F,fontSize:7,color:"#ffaa00",zIndex:60,letterSpacing:4,textShadow:"0 0 10px #ffaa00",animation:"pulse .3s infinite alternate"}}>{t("slowmo")}</div>}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"4px 0 2px"}}>
+        <span style={{fontFamily:F,fontSize:5,color:"#555",letterSpacing:2}}>⚙️ {tObj(boss.arena.name)}</span>
+        <span style={{fontFamily:F,fontSize:5,color:boss.color}}>{t("stageOf")} {boss.stage}/5</span>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",padding:"3px 10px 6px",alignItems:"flex-start"}}>
+        {player&&<HPBar hp={pHp} maxHp={player.maxHp} name={tObj(player.name)} color={player.color} side="left" spPct={pSp}/>}
+        <div style={{fontFamily:F,fontSize:7,color:"#555",padding:"0 4px",minWidth:28,textAlign:"center"}}>VS</div>
+        <HPBar hp={bHp} maxHp={boss.maxHp} name={"🤖 "+tObj(boss.name)} color={boss.color} side="right" spPct={bSp} isBoss/>
+      </div>
+      <div style={{position:"relative",height:280,background:`linear-gradient(180deg,transparent 55%,${boss.arena.floor} 100%)`,overflow:"hidden"}}>
+        <div style={{position:"absolute",bottom:0,left:0,right:0,height:80,background:`repeating-linear-gradient(90deg,${boss.arena.floor}44 0px,${boss.arena.floor}44 1px,transparent 1px,transparent 40px),repeating-linear-gradient(0deg,${boss.arena.floor}44 0px,${boss.arena.floor}44 1px,transparent 1px,transparent 40px)`,transform:"perspective(300px) rotateX(60deg)",transformOrigin:"bottom",opacity:.3}}/>
+        {boss.id==="furnace"&&[...Array(5)].map((_,i)=><div key={`f${i}`} style={{position:"absolute",left:`${40+Math.random()*30}%`,bottom:20+Math.random()*40,width:4,height:4,borderRadius:"50%",background:"#ff6600",animation:`pulse ${.5+Math.random()}s infinite alternate`,opacity:.4}}/>)}
+        {boss.id==="wuhan"&&<div style={{position:"absolute",top:5,left:"50%",transform:"translateX(-50%)",fontFamily:F,fontSize:5,color:"#ff004433",letterSpacing:2}}>{t("tons")}</div>}
+        {energyCharge&&<div style={{position:"absolute",left:100,top:140,width:120,height:120,borderRadius:"50%",border:`3px solid ${player?.color||"#fff"}`,opacity:0.6,"--ec":player?.color||"#fff",animation:"energyPulse 0.4s infinite",pointerEvents:"none"}}/>}
+        {player&&<div style={{position:"absolute",left:55,bottom:38,transform:`${pAtk?"translateX(30px)":""} ${pHit?"translateY(-10px)":""}`,transition:slowMo?"transform 0.5s":"transform .12s"}}><PlayerSprite char={player} isAtk={pAtk} isHit={pHit} isBlock={pBlock}/></div>}
+        <div style={{position:"absolute",right:boss.id==="wuhan"?25:45,bottom:boss.id==="wuhan"?18:32,transform:`scaleX(-1) ${bAtk?"translateX(25px)":""} ${bHit?"translateY(-10px)":""}`,transition:slowMo?"transform 0.5s":"transform .15s"}}><BossSprite boss={boss} isAtk={bAtk} isHit={bHit} isBlock={bBlock}/></div>
+        {shockwaveRings.map(r=><div key={r.id} style={{position:"absolute",left:r.x,top:r.y,width:50,height:50,borderRadius:"50%",border:`3px solid ${r.col}`,pointerEvents:"none",animation:"shockRing 0.8s ease-out forwards",zIndex:40}}/>)}
+        <div style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden"}}>{particles.map(p=><div key={p.id} style={{position:"absolute",left:p.x,top:p.y,width:p.size,height:p.size,borderRadius:p.type==="spark"?"50%":p.type==="fire"?"30%":p.type==="energy"?"50%":"2px",background:p.type==="energy"?`radial-gradient(circle,${p.color},transparent)`:p.color,opacity:p.life/p.maxLife,boxShadow:p.type==="energy"?`0 0 ${p.size*4}px ${p.color}`:`0 0 ${p.size*2}px ${p.color}`,transform:p.type==="energy"?`scale(${1+(1-p.life/p.maxLife)*2})`:""}}/>)}</div>
+        {dmgNums.map(d=><div key={d.id} style={{position:"absolute",left:d.x,top:d.y,fontFamily:F,fontSize:d.sp?22:14,color:d.sp?"#fff":d.col,textShadow:d.sp?`0 0 15px ${d.col},0 0 30px ${d.col}`:`0 0 8px ${d.col}`,animation:"floatUp 1s ease-out forwards",pointerEvents:"none",zIndex:100,fontWeight:"bold"}}>{d.sp?"💥":""}-{d.v}</div>)}
+        {msg&&<div style={{position:"absolute",top:"35%",left:"50%",transform:"translate(-50%,-50%)",fontFamily:F,fontSize:slowMo?16:18,color:"#fff",textShadow:`0 0 30px ${boss.color},0 0 60px ${boss.color},2px 2px 0 #000`,zIndex:60,pointerEvents:"none",animation:slowMo?"specialTextGlow 0.6s infinite":"pulse .3s infinite alternate",textAlign:"center",lineHeight:1.8}}>{msg}{subMsg&&<div style={{fontSize:lang==="zh"?9:7,color:"#ffaa00",marginTop:4,textShadow:"0 0 10px #ffaa00"}}>{subMsg}</div>}</div>}
+        {combo>2&&<div style={{position:"absolute",top:8,left:12,fontFamily:F,fontSize:8,color:"#ffaa00",textShadow:"0 0 8px #ffaa00"}}>COMBO x{combo}!</div>}
+      </div>
+      <div style={{padding:"8px 10px",background:"linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.6))",display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}}>
+        <button onClick={()=>playerAttack(false)} disabled={cd>0||slowMo} style={{fontFamily:F,fontSize:lang==="zh"?10:8,background:cd>0||slowMo?"#333":`linear-gradient(180deg,${player?.color||"#f44"},${player?.dark||"#911"})`,color:"#fff",border:"none",padding:"8px 12px",borderRadius:6,cursor:cd>0||slowMo?"not-allowed":"pointer",opacity:cd>0||slowMo?.5:1,minWidth:80}}>{t("atkBtn")}</button>
+        <button onClick={()=>playerAttack(true)} disabled={pSp<100||slowMo} style={{fontFamily:F,fontSize:lang==="zh"?10:8,background:pSp>=100&&!slowMo?"linear-gradient(180deg,#ffaa00,#ff6600)":"#333",color:"#fff",border:"none",padding:"8px 12px",borderRadius:6,cursor:pSp>=100&&!slowMo?"pointer":"not-allowed",opacity:pSp>=100&&!slowMo?1:.5,animation:pSp>=100&&!slowMo?"pulse .4s infinite alternate":"none",minWidth:85}}>{t("spBtn")}</button>
+        <button onMouseDown={()=>setPBlock(true)} onMouseUp={()=>setPBlock(false)} onMouseLeave={()=>setPBlock(false)} onTouchStart={e=>{e.preventDefault();setPBlock(true);}} onTouchEnd={()=>setPBlock(false)}
+          style={{fontFamily:F,fontSize:lang==="zh"?10:8,background:pBlock?"linear-gradient(180deg,#44aaff,#2266aa)":"linear-gradient(180deg,#444,#333)",color:"#fff",border:"none",padding:"8px 12px",borderRadius:6,cursor:"pointer",minWidth:80}}>{t("blkBtn")}</button>
+      </div>
+      <div style={{padding:"0 10px 2px",display:"flex",alignItems:"center",gap:5}}>
+        <span style={{fontFamily:F,fontSize:5,color:"#888"}}>SPECIAL</span>
+        <div style={{flex:1,height:5,background:"#222",borderRadius:3,overflow:"hidden"}}><div style={{width:`${pSp}%`,height:"100%",background:pSp>=100?"linear-gradient(90deg,#ffaa00,#ff6600)":`linear-gradient(90deg,${player?.color}88,${player?.color})`,transition:"width .3s"}}/></div>
+        <span style={{fontFamily:F,fontSize:5,color:pSp>=100?"#ffaa00":"#666"}}>{Math.round(pSp)}%</span>
+      </div>
+      <div style={{padding:"2px 10px 3px",maxHeight:45,overflow:"hidden"}}>{log.slice(-3).map((l,i)=><div key={l.id} style={{fontFamily:F,fontSize:5,color:`rgba(150,150,150,${.35+(i/3)*.65})`,marginBottom:1}}>{l.t}</div>)}</div>
+      <div style={{padding:"1px 10px 4px",fontFamily:F,fontSize:lang==="zh"?6:5,color:"#444",textAlign:"center"}}>{t("controls")}</div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Game />);
+</script>
+</body>
+</html>
