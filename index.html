@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="description" content="HUMAN vs CNC — Sovereign Fighting Ultimate Edition. Browser fighting game: 4 machines vs 5 bosses. RU/EN/ZH.">
+<meta name="description" content="HUMAN vs CNC — Sovereign Fighting Ultimate Edition. Browser fighting game with procedural chiptune OST. RU/EN/ZH.">
 <meta property="og:title" content="HUMAN vs CNC — Sovereign Fighting">
 <meta property="og:description" content="The factory floor has risen. Choose your machine. Fight the bosses. Save sovereignty.">
 <meta property="og:type" content="website">
@@ -715,9 +715,422 @@ function HPBar({ hp, maxHp, name, color, side, spPct, isBoss }) {
 }
 
 /* ═══════════════════════════════════════════ */
+/* ═══ AUDIO ENGINE — Procedural chiptune + SFX ═══ */
+const AudioEngine = (() => {
+  let ctx = null, masterGain = null, musicGain = null, sfxGain = null;
+  let musicPlaying = false, muted = false, musicNodes = [];
+
+  function init() {
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = ctx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(ctx.destination);
+    musicGain = ctx.createGain(); musicGain.gain.value = 0.18; musicGain.connect(masterGain);
+    sfxGain = ctx.createGain(); sfxGain.gain.value = 0.6; sfxGain.connect(masterGain);
+  }
+
+  function ensureCtx() { if (!ctx) init(); if (ctx.state === 'suspended') ctx.resume(); }
+
+  // Note frequency helper
+  const noteFreq = (note, oct) => {
+    const n = { C:0,Cs:1,D:2,Ds:3,E:4,F:5,Fs:6,G:7,Gs:8,A:9,As:10,B:11 };
+    return 440 * Math.pow(2, (n[note] - 9) / 12 + (oct - 4));
+  };
+
+  // Quick oscillator
+  function osc(type, freq, start, dur, gain = 0.15, dest = sfxGain) {
+    if (!ctx || muted) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(gain, start);
+    g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+    o.connect(g); g.connect(dest); o.start(start); o.stop(start + dur);
+    return { osc: o, gain: g };
+  }
+
+  // Noise generator for drums
+  function noise(start, dur, gain = 0.1, dest = sfxGain) {
+    if (!ctx || muted) return;
+    const bufSize = ctx.sampleRate * dur;
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const g = ctx.createGain(); g.gain.setValueAtTime(gain, start);
+    g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+    const flt = ctx.createBiquadFilter(); flt.type = 'highpass'; flt.frequency.value = 4000;
+    src.connect(flt); flt.connect(g); g.connect(dest); src.start(start); src.stop(start + dur);
+  }
+
+  // Kick drum
+  function kick(start, dest = sfxGain) {
+    if (!ctx || muted) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(150, start);
+    o.frequency.exponentialRampToValueAtTime(30, start + 0.12);
+    g.gain.setValueAtTime(0.4, start);
+    g.gain.exponentialRampToValueAtTime(0.001, start + 0.15);
+    o.connect(g); g.connect(dest); o.start(start); o.stop(start + 0.2);
+  }
+
+  // ── SFX ────────────────────────────
+
+  function playHit() {
+    ensureCtx(); const t = ctx.currentTime;
+    osc('sawtooth', 200 + Math.random() * 100, t, 0.08, 0.2);
+    osc('square', 400 + Math.random() * 200, t, 0.05, 0.1);
+    noise(t, 0.06, 0.15);
+  }
+
+  function playHeavyHit() {
+    ensureCtx(); const t = ctx.currentTime;
+    osc('sawtooth', 100, t, 0.15, 0.3);
+    osc('square', 250, t + 0.02, 0.1, 0.2);
+    osc('sine', 60, t, 0.2, 0.25);
+    noise(t, 0.1, 0.2);
+    kick(t);
+  }
+
+  function playBlock() {
+    ensureCtx(); const t = ctx.currentTime;
+    osc('square', 800, t, 0.04, 0.15);
+    osc('square', 600, t + 0.04, 0.06, 0.1);
+    osc('triangle', 1200, t, 0.03, 0.08);
+  }
+
+  function playSpecialCharge() {
+    ensureCtx(); const t = ctx.currentTime;
+    for (let i = 0; i < 20; i++) {
+      osc('sine', 200 + i * 80, t + i * 0.055, 0.12, 0.06);
+      osc('triangle', 300 + i * 60, t + i * 0.055, 0.08, 0.03);
+    }
+  }
+
+  function playSpecialImpact() {
+    ensureCtx(); const t = ctx.currentTime;
+    osc('sawtooth', 80, t, 0.4, 0.4);
+    osc('square', 200, t, 0.3, 0.25);
+    osc('sine', 50, t, 0.5, 0.3);
+    osc('triangle', 400, t + 0.05, 0.2, 0.15);
+    noise(t, 0.2, 0.3);
+    kick(t); kick(t + 0.1);
+  }
+
+  function playCombo(n) {
+    ensureCtx(); const t = ctx.currentTime;
+    // Aggressive metallic impact — deeper and heavier with higher combos
+    const intensity = Math.min(n, 10);
+    const base = 150 - intensity * 8; // gets LOWER (heavier) with combo
+    osc('sawtooth', base, t, 0.1, 0.15 + intensity * 0.01);
+    osc('square', base * 1.5, t, 0.06, 0.1);
+    // Distorted crunch
+    osc('sawtooth', base * 0.5, t, 0.12, 0.12);
+    noise(t, 0.04, 0.08 + intensity * 0.01);
+    // Sub-thud for high combos
+    if (n >= 4) kick(t);
+    if (n >= 6) osc('sine', 40, t, 0.2, 0.15);
+  }
+
+  function playBossDefeat() {
+    ensureCtx(); const t = ctx.currentTime;
+    // Dramatic impact moment
+    osc('sine', 55, t, 0.5, 0.3);
+    kick(t); kick(t + 0.15);
+    noise(t, 0.15, 0.2);
+    osc('sawtooth', 110, t + 0.2, 0.4, 0.12);
+    // Then triumphant minor resolution
+    const notes = [165, 196, 220, 262]; // E3 G3 A3 C4 — minor triumph
+    notes.forEach((f, i) => {
+      osc('triangle', f, t + 0.5 + i * 0.2, 0.5, 0.08);
+      osc('sine', f * 0.5, t + 0.5 + i * 0.2, 0.6, 0.05);
+    });
+    // Sustain chord
+    osc('triangle', 262, t + 1.3, 2.0, 0.06);
+    osc('triangle', 196, t + 1.3, 2.0, 0.04);
+    osc('sine', 131, t + 1.3, 2.5, 0.05);
+  }
+
+  // Looping ambient for result screens
+  function startResultMusic() {
+    stopMusic();
+    if (muted) return;
+    ensureCtx();
+    barCount = 0;
+    const root = noteFreq('C', 2);
+
+    function scheduleResult() {
+      if (!ctx || muted || !musicPlaying) return;
+      const t = ctx.currentTime + 0.05;
+      barCount++;
+
+      // Dark triumphant drone
+      osc('sine', root, t, 4.0, 0.05, musicGain);
+      osc('sine', root * 3/2, t + 0.5, 3.0, 0.03, musicGain); // fifth
+      osc('triangle', root * 2, t + 1.0, 2.5, 0.02, musicGain);
+
+      // Slow minor arpeggio — reflective, not cheerful
+      const scale = [1, 6/5, 3/2, 2]; // minor triad + octave
+      scale.forEach((r, i) => {
+        osc('triangle', root * 2 * r, t + i * 0.8, 1.0, 0.02, musicGain);
+      });
+
+      // Subtle industrial pulse
+      if (barCount % 2 === 0) {
+        kick(t + 1.5, musicGain);
+      }
+
+      loopTimer = setTimeout(scheduleResult, 3500);
+    }
+
+    musicPlaying = true;
+    scheduleResult();
+  }
+
+  function playVictory() {
+    ensureCtx(); const t = ctx.currentTime;
+    const melody = [523, 587, 659, 784, 1047, 784, 1047, 1319];
+    melody.forEach((f, i) => {
+      osc('square', f, t + i * 0.18, 0.25, 0.1);
+      osc('triangle', f * 0.5, t + i * 0.18, 0.3, 0.06);
+    });
+    kick(t); kick(t + 0.36); kick(t + 0.72); kick(t + 1.08);
+  }
+
+  function playGameover() {
+    ensureCtx(); const t = ctx.currentTime;
+    [392, 349, 330, 262, 196].forEach((f, i) => {
+      osc('sawtooth', f, t + i * 0.25, 0.35, 0.1);
+    });
+    osc('sine', 98, t + 1.0, 1.5, 0.12);
+  }
+
+  function playClick() {
+    ensureCtx(); const t = ctx.currentTime;
+    osc('square', 900, t, 0.03, 0.08);
+    osc('square', 1200, t + 0.03, 0.03, 0.06);
+  }
+
+  function playLoreAdvance() {
+    ensureCtx(); const t = ctx.currentTime;
+    osc('triangle', 600, t, 0.05, 0.06);
+    osc('triangle', 800, t + 0.05, 0.07, 0.05);
+  }
+
+  // ── MUSIC — DARK INDUSTRIAL EPIC ────────────────────────────
+
+  let loopTimer = null;
+  let barCount = 0;
+
+  // Battle BGM — ominous industrial march with boss-specific character
+  function startBattleMusic(bossId) {
+    stopMusic();
+    if (muted) return;
+    ensureCtx();
+    barCount = 0;
+
+    // Boss-specific: all minor/phrygian, slower, heavier
+    const keys = {
+      furnace:  { root: 'D', oct: 1, bpm: 110, vibe: 'doom' },
+      brake:    { root: 'Cs', oct: 1, bpm: 100, vibe: 'march' },
+      welder:   { root: 'E', oct: 1, bpm: 125, vibe: 'chaos' },
+      center:   { root: 'A', oct: 1, bpm: 115, vibe: 'menace' },
+      wuhan:    { root: 'C', oct: 1, bpm: 85, vibe: 'titan' },
+    };
+    const k = keys[bossId] || keys.furnace;
+    const bpm = k.bpm;
+    const step = 60 / bpm / 4;
+    const root = noteFreq(k.root, k.oct);
+
+    // Phrygian scale — dark, menacing, Middle-Eastern tension
+    const phrygian = [1, 16/15, 6/5, 4/3, 3/2, 8/5, 9/5];
+    // Harmonic minor feel for boss variants
+    const harmMin = [1, 9/8, 6/5, 4/3, 3/2, 8/5, 15/8];
+    const sc = k.vibe === 'titan' ? harmMin : phrygian;
+
+    // ── Patterns vary per vibe ──
+
+    // DOOM: slow pound, descending bass
+    // MARCH: militaristic 4/4, snare on 2&4
+    // CHAOS: syncopated, fast arpeggios
+    // MENACE: creeping bass, sudden stabs
+    // TITAN: massive power chords, slow grinding
+
+    const bassPatterns = {
+      doom:   [0,0,0,0, 5,5,5,5, 3,3,3,3, 4,4,4,4],
+      march:  [0,0,4,0, 3,3,4,3, 5,5,4,5, 3,3,2,2],
+      chaos:  [0,4,3,5, 0,3,4,6, 0,5,3,4, 6,4,3,0],
+      menace: [0,0,0,1, 0,0,0,3, 0,0,0,4, 0,0,0,5],
+      titan:  [0,0,0,0, 0,0,0,0, 3,3,3,3, 4,4,4,4],
+    };
+
+    const arpPatterns = {
+      doom:   [0,2,4,2, 5,4,2,0, 3,5,4,3, 4,2,0,2],
+      march:  [0,0,2,4, 4,4,2,0, 3,3,5,4, 4,2,0,0],
+      chaos:  [0,2,4,6, 4,2,0,6, 4,0,6,2, 0,4,2,6],
+      menace: [4,99,99,2, 99,99,0,99, 5,99,99,3, 99,99,1,99], // 99 = rest
+      titan:  [0,99,4,99, 0,99,4,99, 3,99,5,99, 4,99,0,99],
+    };
+
+    const kickPatterns = {
+      doom:   [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
+      march:  [1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,1,0],
+      chaos:  [1,0,1,0, 0,1,0,1, 1,0,0,1, 0,1,1,0],
+      menace: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,1],
+      titan:  [1,0,0,0, 0,0,0,0, 1,0,0,0, 1,0,0,0],
+    };
+
+    const snarePatterns = {
+      doom:   [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1],
+      march:  [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      chaos:  [0,0,1,0, 0,1,0,0, 1,0,0,0, 0,1,0,1],
+      menace: [0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,0],
+      titan:  [0,0,0,0, 0,0,0,0, 0,0,0,0, 1,0,0,0],
+    };
+
+    const v = k.vibe;
+    const bass = bassPatterns[v], arp = arpPatterns[v];
+    const kicks = kickPatterns[v], snares = snarePatterns[v];
+
+    function scheduleBar() {
+      if (!ctx || muted || !musicPlaying) return;
+      const t0 = ctx.currentTime + 0.05;
+      barCount++;
+
+      for (let i = 0; i < 16; i++) {
+        const t = t0 + i * step;
+
+        // BASS — deep, distorted square
+        const bn = bass[i] % sc.length;
+        const bassFreq = root * sc[bn];
+        osc('square', bassFreq, t, step * 0.9, 0.14, musicGain);
+        // Sub-bass sine for weight
+        osc('sine', bassFreq * 0.5, t, step * 0.9, 0.1, musicGain);
+
+        // ARP — mid-range menacing
+        if (arp[i] !== 99) {
+          const an = arp[i] % sc.length;
+          const arpFreq = root * 4 * sc[an];
+          osc('sawtooth', arpFreq, t, step * 0.4, 0.035, musicGain);
+        }
+
+        // POWER STABS — every 4 bars, octave power chord
+        if (barCount % 4 === 0 && i === 0) {
+          osc('sawtooth', root * 2, t, step * 4, 0.06, musicGain);
+          osc('sawtooth', root * 3, t, step * 4, 0.04, musicGain);
+          osc('square', root * 4, t, step * 4, 0.03, musicGain);
+        }
+
+        // LEAD — every 2 bars, haunting melody fragment
+        if (barCount % 2 === 0 && i % 4 === 0) {
+          const melIdx = (barCount + i / 4) % sc.length;
+          const melFreq = root * 8 * sc[melIdx];
+          osc('triangle', melFreq, t, step * 3, 0.02, musicGain);
+        }
+
+        // KICK
+        if (kicks[i]) kick(t, musicGain);
+
+        // SNARE (noise burst)
+        if (snares[i]) noise(t, 0.08, 0.06, musicGain);
+
+        // HIHAT — constant 8ths, quiet
+        if (i % 2 === 0) noise(t, 0.02, 0.02, musicGain);
+      }
+
+      // Descending doom note every 8 bars for DREAD
+      if (barCount % 8 === 0) {
+        const t = t0;
+        osc('sine', root * 0.5, t, 16 * step, 0.05, musicGain);
+      }
+
+      const barDur = 16 * step;
+      loopTimer = setTimeout(scheduleBar, barDur * 1000 - 60);
+    }
+
+    musicPlaying = true;
+    scheduleBar();
+  }
+
+  // Title BGM — epic dark industrial ambient (MUST be grandiose)
+  function startTitleMusic() {
+    stopMusic();
+    if (muted) return;
+    ensureCtx();
+    barCount = 0;
+
+    const root = noteFreq('C', 1); // Very low C
+
+    function scheduleDrone() {
+      if (!ctx || muted || !musicPlaying) return;
+      const t = ctx.currentTime + 0.05;
+      barCount++;
+
+      // Deep industrial drone — ominous foundation
+      osc('sine', root, t, 5.0, 0.07, musicGain);
+      osc('sine', root * 3/2, t + 0.3, 4.5, 0.03, musicGain); // fifth
+      osc('triangle', root * 2, t + 1.0, 3.5, 0.02, musicGain); // octave
+
+      // Dissonant cluster — unease
+      osc('sine', root * 16/15, t + 2.0, 2.5, 0.02, musicGain); // minor 2nd = tension
+
+      // Slow epic arpeggiation — like machinery waking up
+      const notes = [1, 6/5, 3/2, 8/5, 2, 8/5, 3/2, 6/5]; // minor chord descending
+      notes.forEach((ratio, i) => {
+        osc('triangle', root * 4 * ratio, t + i * 0.6, 0.9, 0.02, musicGain);
+      });
+
+      // Every 4 cycles: epic brass-like stab
+      if (barCount % 4 === 1) {
+        osc('sawtooth', root * 2, t, 2.0, 0.04, musicGain);
+        osc('sawtooth', root * 3, t + 0.05, 1.8, 0.03, musicGain);
+        osc('sawtooth', root * 4, t + 0.1, 1.5, 0.02, musicGain);
+      }
+
+      // Every 3 cycles: distant industrial thud
+      if (barCount % 3 === 0) {
+        kick(t + 1.0, musicGain);
+        kick(t + 1.4, musicGain);
+      }
+
+      // Every 8 cycles: rising tension swoop
+      if (barCount % 8 === 0) {
+        for (let i = 0; i < 8; i++) {
+          osc('sine', root * (2 + i * 0.5), t + 2.0 + i * 0.3, 0.5, 0.015, musicGain);
+        }
+      }
+
+      loopTimer = setTimeout(scheduleDrone, 4500);
+    }
+
+    musicPlaying = true;
+    scheduleDrone();
+  }
+
+  function stopMusic() {
+    musicPlaying = false;
+    if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
+  }
+
+  function toggleMute() {
+    muted = !muted;
+    if (muted) { stopMusic(); if (masterGain) masterGain.gain.value = 0; }
+    else { if (masterGain) masterGain.gain.value = 0.5; }
+    return muted;
+  }
+
+  function isMuted() { return muted; }
+
+  return {
+    init, playHit, playHeavyHit, playBlock, playSpecialCharge, playSpecialImpact,
+    playCombo, playBossDefeat, playVictory, playGameover, playClick, playLoreAdvance,
+    startBattleMusic, startTitleMusic, startResultMusic, stopMusic, toggleMute, isMuted
+  };
+})();
+
 function Game() {
   const [lang, setLang] = useState("ru");
   const [screen, setScreen] = useState("title");
+  const [isMuted, setIsMuted] = useState(false);
+  const audioInitRef = useRef(false);
   const [player, setPlayer] = useState(null);
   const [bossIdx, setBossIdx] = useState(0);
   const [loreIdx, setLoreIdx] = useState(0);
@@ -752,7 +1165,15 @@ function Game() {
 
   const hpRef=useRef({p:100,b:100}); const scrRef=useRef("title");
   const bBlockRef=useRef(false); const pBlockRef=useRef(false);
-  useEffect(()=>{scrRef.current=screen;if(screen!=="battle"){setShake(0);setSlowMo(false);setEnergyCharge(false);setSpecialFlash(null);setScreenTint(null);setShockwaveRings([]);setParticles([]);}},[screen]);
+  useEffect(()=>{scrRef.current=screen;if(screen!=="battle"){setShake(0);setSlowMo(false);setEnergyCharge(false);setSpecialFlash(null);setScreenTint(null);setShockwaveRings([]);setParticles([]);}
+    // Music transitions — only if audio was initialized by user gesture
+    if(!audioInitRef.current) return;
+    if(screen==="title"||screen==="select"||screen==="lore"){ AudioEngine.startTitleMusic(); }
+    else if(screen==="battle"){ AudioEngine.startBattleMusic(BOSSES[bossIdx]?.id); }
+    else if(screen==="bossDefeat"){ AudioEngine.stopMusic(); AudioEngine.playBossDefeat(); setTimeout(()=>{if(scrRef.current==="bossDefeat")AudioEngine.startResultMusic();},2000); }
+    else if(screen==="victory"){ AudioEngine.stopMusic(); AudioEngine.playVictory(); setTimeout(()=>{if(scrRef.current==="victory")AudioEngine.startResultMusic();},2500); }
+    else if(screen==="gameover"){ AudioEngine.stopMusic(); AudioEngine.playGameover(); }
+  },[screen,bossIdx]);
   useEffect(()=>{hpRef.current.p=pHp;},[pHp]); useEffect(()=>{hpRef.current.b=bHp;},[bHp]);
   useEffect(()=>{bBlockRef.current=bBlock;},[bBlock]); useEffect(()=>{pBlockRef.current=pBlock;},[pBlock]);
 
@@ -778,6 +1199,7 @@ function Game() {
   const doSpecialAttack=useCallback((isPlayer)=>{
     if(!player)return;const attacker=isPlayer?player:BOSSES[bossIdx];
     setSlowMo(true);setEnergyCharge(true);setScreenTint(attacker.color+"22");
+    AudioEngine.playSpecialCharge();
     const cx=isPlayer?180:460,cy=190;
     const eiv=setInterval(()=>{for(let i=0;i<4;i++)spawn(cx+(Math.random()-.5)*200,cy+(Math.random()-.5)*150,attacker.color,1,"energy");},50);
     flash("⚡ "+tObj(attacker.specialName)+" ⚡",2200,tObj(attacker.specialQuote)||"");
@@ -789,6 +1211,7 @@ function Game() {
       const dmg=Math.max(1,Math.round((attacker.special-defender.defense*0.2)*(0.85+Math.random()*0.3)*(blocked?0.2:1)));
       if(isPlayer){setBHit(true);setTimeout(()=>setBHit(false),300);}else{setPHit(true);setTimeout(()=>setPHit(false),300);}
       const hx=isPlayer?460:180,hy=190;spawn(hx,hy,attacker.color,40,"explosion");spawn(hx,hy,"#fff",15,"shockwave");addShockwave(hx,hy,attacker.color);doShake(18);
+      AudioEngine.playSpecialImpact();
       addLog(`💥💥 ${tObj(attacker.specialName)}! (-${dmg})`);
       setDmgNums(d=>[...d,{x:hx-20+Math.random()*40,y:hy-20,v:dmg,col:attacker.color,sp:true,id:Date.now()}]);
       if(isPlayer){setBHp(prev=>{const next=Math.max(0,prev-dmg);if(next<=0)setTimeout(()=>{const b=BOSSES[bossIdx];setBattleStats(s=>({...s,time:((Date.now()-battleStartRef.current)/1000),specials:s.specials+1}));setResultQuote(pick(DEFEAT_PHRASES[b.id][lang]||DEFEAT_PHRASES[b.id].ru));setScreen(bossIdx<4?"bossDefeat":"victory");},700);return next;});setPSp(0);setBattleStats(s=>({...s,hits:s.hits+1,specials:s.specials+1,maxCombo:Math.max(s.maxCombo,combo)}));}
@@ -800,14 +1223,15 @@ function Game() {
     if(cd>0||!player||scrRef.current!=="battle"||slowMo)return;
     if(special&&pSp<100)return;
     if(special){doSpecialAttack(true);setCd(2000);return;}
+    AudioEngine.playHit();
     setPAtk(true);setCd(550);
     setTimeout(()=>{
       if(hpRef.current.b<=0)return;const b=BOSSES[bossIdx];
       const dmg=Math.max(1,Math.round((player.attack-b.defense*0.25)*(0.8+Math.random()*0.4)*(bBlockRef.current?0.25:1)));
       setBHit(true);setTimeout(()=>setBHit(false),180);
       const hx=440+Math.random()*50,hy=155+Math.random()*50;spawn(hx,hy,player.color,12);doShake(5);
-      if(bBlockRef.current){flash(t("blocked"),600);addLog(`🛡️ ${t("blocked")} (-${dmg})`);}
-      else{const c=combo+1;setCombo(c);if(c>2){addLog(`🔥x${c} ${pick(COMBO_PHRASES[lang]||COMBO_PHRASES.ru).replace("{n}",c)} (-${dmg})`);}else{addLog(`⚔️ ${pick(BATTLE_TAUNTS[lang]||BATTLE_TAUNTS.ru)} (-${dmg})`);}}
+      if(bBlockRef.current){AudioEngine.playBlock();flash(t("blocked"),600);addLog(`🛡️ ${t("blocked")} (-${dmg})`);}
+      else{const c=combo+1;setCombo(c);if(c>2){AudioEngine.playCombo(c);addLog(`🔥x${c} ${pick(COMBO_PHRASES[lang]||COMBO_PHRASES.ru).replace("{n}",c)} (-${dmg})`);}else{addLog(`⚔️ ${pick(BATTLE_TAUNTS[lang]||BATTLE_TAUNTS.ru)} (-${dmg})`);}}
       setDmgNums(d=>[...d,{x:hx,y:hy,v:dmg,col:player.color,sp:false,id:Date.now()}]);
       setBHp(prev=>{const next=Math.max(0,prev-dmg);if(next<=0)setTimeout(()=>{const b=BOSSES[bossIdx];setBattleStats(s=>({...s,time:((Date.now()-battleStartRef.current)/1000),hits:s.hits+1,maxCombo:Math.max(s.maxCombo,combo+1)}));setResultQuote(pick(DEFEAT_PHRASES[b.id][lang]||DEFEAT_PHRASES[b.id].ru));setScreen(bossIdx<4?"bossDefeat":"victory");},600);return next;});
       setBattleStats(s=>({...s,hits:s.hits+1,maxCombo:Math.max(s.maxCombo,combo+1)}));
@@ -827,7 +1251,7 @@ function Game() {
       if(b.id==="welder"&&!pBlockRef.current&&Math.random()<0.3){const d2=Math.round(dmg*0.6);addLog(`🤖 x2! (-${d2})`);setTimeout(()=>{setPHit(true);setTimeout(()=>setPHit(false),150);spawn(180,180,b.color,8);setPHp(prev=>Math.max(0,prev-d2));},200);}
       setPHit(true);setTimeout(()=>setPHit(false),180);
       const hx=140+Math.random()*50,hy=155+Math.random()*50;spawn(hx,hy,b.color,10,b.id==="furnace"?"fire":"spark");doShake(5);
-      if(pBlockRef.current){flash(t("blocked"),600);addLog(`🛡️ ${t("blocked")} (-${dmg})`);}else{setCombo(0);addLog(`🤖 ${pick(PLAYER_HIT_PHRASES[lang]||PLAYER_HIT_PHRASES.ru)} (-${dmg})`);}
+      if(pBlockRef.current){AudioEngine.playBlock();flash(t("blocked"),600);addLog(`🛡️ ${t("blocked")} (-${dmg})`);}else{AudioEngine.playHeavyHit();setCombo(0);addLog(`🤖 ${pick(PLAYER_HIT_PHRASES[lang]||PLAYER_HIT_PHRASES.ru)} (-${dmg})`);}
       setDmgNums(d=>[...d,{x:hx,y:hy,v:dmg,col:b.color,sp:false,id:Date.now()}]);
       setPHp(prev=>{const next=Math.max(0,prev-dmg);if(next<=0)setTimeout(()=>{setResultQuote(pick(GAMEOVER_PHRASES[lang]||GAMEOVER_PHRASES.ru));setScreen("gameover");},600);return next;});
       setBSp(s=>Math.min(100,s+9));
@@ -837,12 +1261,12 @@ function Game() {
   useEffect(()=>{if(screen==="battle"){const b=BOSSES[bossIdx];const base=b.id==="furnace"?1800:b.id==="welder"?900:b.id==="wuhan"?1400:1200;const iv=setInterval(cpuAct,base+Math.random()*600);return()=>clearInterval(iv);}},[screen,bossIdx,cpuAct]);
   useEffect(()=>{const kd=e=>{if(scrRef.current!=="battle")return;if("aAфФ".includes(e.key))playerAttack(false);if("sSыЫ".includes(e.key))playerAttack(true);if("dDвВ".includes(e.key))setPBlock(true);};const ku=e=>{if("dDвВ".includes(e.key))setPBlock(false);};window.addEventListener("keydown",kd);window.addEventListener("keyup",ku);return()=>{window.removeEventListener("keydown",kd);window.removeEventListener("keyup",ku);};},[playerAttack]);
 
-  const startBoss=useCallback((i)=>{setPlayer({...PLAYERS[i]});setBossIdx(0);setLoreIdx(0);setScreen("lore");},[]);
+  const startBoss=useCallback((i)=>{AudioEngine.playClick();setPlayer({...PLAYERS[i]});setBossIdx(0);setLoreIdx(0);setScreen("lore");},[]);
   const initBattle=useCallback(()=>{const b=BOSSES[bossIdx];setPHp(player.maxHp);setBHp(b.maxHp);setPSp(0);setBSp(0);setParticles([]);setDmgNums([]);setCombo(0);setLog([]);setCd(0);setPBlock(false);setBBlock(false);setSlowMo(false);setEnergyCharge(false);setSpecialFlash(null);setScreenTint(null);setShockwaveRings([]);battleStartRef.current=Date.now();setBattleStats({time:0,hits:0,specials:0,maxCombo:0});setScreen("battle");flash(t("fight"),1500);},[bossIdx,player,flash,t]);
   const nextBoss=useCallback(()=>{setBossIdx(i=>i+1);setLoreIdx(0);setScreen("lore");},[]);
 
   const ss=shake>0?{transform:`translate(${(Math.random()-.5)*shake}px,${(Math.random()-.5)*shake}px)`}:{};
-  const css=`@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap');@keyframes pulse{0%{opacity:.6}100%{opacity:1}}@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-70px) scale(1.4)}}@keyframes glow{0%{text-shadow:0 0 20px #ff4444,0 0 40px #ff4444}50%{text-shadow:0 0 30px #ff0044,0 0 60px #ff0044}100%{text-shadow:0 0 20px #ff4444,0 0 40px #ff4444}}@keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes shockRing{0%{transform:translate(-50%,-50%) scale(0);opacity:1}100%{transform:translate(-50%,-50%) scale(4);opacity:0}}@keyframes energyPulse{0%{box-shadow:0 0 20px var(--ec)}50%{box-shadow:0 0 60px var(--ec),0 0 100px var(--ec)}100%{box-shadow:0 0 20px var(--ec)}}@keyframes specialTextGlow{0%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.1);filter:brightness(1.5)}100%{transform:translate(-50%,-50%) scale(1)}}@keyframes screenFlash{0%{opacity:0.8}100%{opacity:0}}`;
+  const css=`@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap');button,div[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}@keyframes pulse{0%{opacity:.6}100%{opacity:1}}@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-70px) scale(1.4)}}@keyframes glow{0%{text-shadow:0 0 20px #ff4444,0 0 40px #ff4444}50%{text-shadow:0 0 30px #ff0044,0 0 60px #ff0044}100%{text-shadow:0 0 20px #ff4444,0 0 40px #ff4444}}@keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes shockRing{0%{transform:translate(-50%,-50%) scale(0);opacity:1}100%{transform:translate(-50%,-50%) scale(4);opacity:0}}@keyframes energyPulse{0%{box-shadow:0 0 20px var(--ec)}50%{box-shadow:0 0 60px var(--ec),0 0 100px var(--ec)}100%{box-shadow:0 0 20px var(--ec)}}@keyframes specialTextGlow{0%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.1);filter:brightness(1.5)}100%{transform:translate(-50%,-50%) scale(1)}}@keyframes screenFlash{0%{opacity:0.8}100%{opacity:0}}`;
   const F=lang==="zh"?"'Noto Sans SC','Press Start 2P',monospace":"'Press Start 2P',monospace";
   const F2="'Orbitron','Noto Sans SC',monospace";
   const W={width:"100%",maxWidth:700,margin:"0 auto",borderRadius:12,overflow:"hidden",fontFamily:"monospace",position:"relative"};
@@ -866,12 +1290,13 @@ function Game() {
         <div style={{display:"flex",gap:10,justifyContent:"center",marginBottom:16}}>
           {BOSSES.map((b,i)=><div key={i} style={{width:32,height:32,borderRadius:"50%",background:`radial-gradient(circle,${b.color},${b.dark})`,border:`2px solid ${b.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,boxShadow:`0 0 10px ${b.color}33`}}>{b.emoji}</div>)}
         </div>
-        <button onClick={()=>setScreen("select")} style={{fontFamily:F,fontSize:lang==="zh"?13:12,background:"linear-gradient(180deg,#ff0044,#aa0022)",color:"#fff",border:"none",padding:"13px 32px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 30px #ff004466",animation:"pulse 1s infinite alternate"}}>{t("startBtn")}</button>
+        <button onPointerDown={(e)=>{e.preventDefault();if(!audioInitRef.current){AudioEngine.init();audioInitRef.current=true;AudioEngine.startTitleMusic();}AudioEngine.playClick();setScreen("select");}} style={{fontFamily:F,fontSize:lang==="zh"?13:12,background:"linear-gradient(180deg,#ff0044,#aa0022)",color:"#fff",border:"none",padding:"13px 32px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 30px #ff004466",animation:"pulse 1s infinite alternate",touchAction:"manipulation"}}>{t("startBtn")}</button>
         <div style={{fontFamily:F,fontSize:lang==="zh"?7:5,color:"#444",marginTop:10}}>{t("tagline")}</div>
         <div style={{marginTop:16,padding:"6px 10px",background:"rgba(255,255,255,0.03)",borderRadius:6}}>
           <div style={{fontFamily:F,fontSize:5,color:"#555",marginBottom:2}}>{t("copyright")}</div>
           <div style={{fontFamily:F2,fontSize:7,color:"#666"}}>gemiviet26@gmail.com</div>
           <div style={{fontFamily:F,fontSize:lang==="zh"?6:4,color:"#444",marginTop:2}}>{t("disclaimer")}</div>
+          <button onPointerDown={(e)=>{e.preventDefault();if(!audioInitRef.current){AudioEngine.init();audioInitRef.current=true;}setIsMuted(AudioEngine.toggleMute());}} style={{marginTop:4,background:"none",border:"1px solid #333",borderRadius:4,padding:"3px 10px",cursor:"pointer",fontSize:12,color:"#666",WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>{isMuted?"🔇":"🔊"}</button>
         </div>
       </div>
     </div>
@@ -885,7 +1310,7 @@ function Game() {
       <p style={{fontFamily:F2,fontSize:lang==="zh"?10:8,color:"#666",textAlign:"center",marginBottom:14}}>{t("selectSub")}</p>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         {PLAYERS.map((c,i)=>(
-          <div key={c.id} onClick={()=>startBoss(i)} onMouseEnter={()=>setHovered(i)} onMouseLeave={()=>setHovered(null)}
+          <div key={c.id} onPointerDown={(e)=>{e.preventDefault();startBoss(i);}} onMouseEnter={()=>setHovered(i)} onMouseLeave={()=>setHovered(null)}
             style={{background:hovered===i?`linear-gradient(135deg,${c.dark}88,${c.color}18)`:"linear-gradient(135deg,#1a1a2e,#222244)",border:`2px solid ${hovered===i?c.color:"#333"}`,borderRadius:10,padding:12,cursor:"pointer",transition:"all .25s",transform:hovered===i?"scale(1.02)":"scale(1)"}}>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
               <span style={{fontSize:22}}>{c.emoji}</span>
@@ -924,11 +1349,11 @@ function Game() {
           ))}
         </div>
         {loreIdx<lines.length-1?(
-          <button onClick={()=>setLoreIdx(i=>i+1)} style={{fontFamily:F,fontSize:9,background:"transparent",color:b.accent,border:`1px solid ${b.color}44`,padding:"8px 20px",borderRadius:6,cursor:"pointer",alignSelf:"center",animation:"pulse .8s infinite alternate"}}>{t("next")}</button>
+          <button onPointerDown={(e)=>{e.preventDefault();AudioEngine.playLoreAdvance();setLoreIdx(i=>i+1);}} style={{fontFamily:F,fontSize:9,background:"transparent",color:b.accent,border:`1px solid ${b.color}44`,padding:"8px 20px",borderRadius:6,cursor:"pointer",alignSelf:"center",animation:"pulse .8s infinite alternate"}}>{t("next")}</button>
         ):(
           <div style={{textAlign:"center"}}>
             <div style={{fontFamily:F,fontSize:lang==="zh"?10:8,color:b.color,marginBottom:10,padding:"6px 12px",background:`${b.dark}44`,borderRadius:6,border:`1px solid ${b.color}44`,display:"inline-block",lineHeight:1.6}}>«{tObj(b.taunt)}»</div><br/>
-            <button onClick={initBattle} style={{fontFamily:F,fontSize:lang==="zh"?14:12,background:`linear-gradient(180deg,${b.color},${b.dark})`,color:"#fff",border:"none",padding:"12px 28px",borderRadius:8,cursor:"pointer",boxShadow:`0 0 25px ${b.color}44`,marginTop:6}}>{t("toBattle")}</button>
+            <button onPointerDown={(e)=>{e.preventDefault();AudioEngine.playClick();initBattle();}} style={{fontFamily:F,fontSize:lang==="zh"?14:12,background:`linear-gradient(180deg,${b.color},${b.dark})`,color:"#fff",border:"none",padding:"12px 28px",borderRadius:8,cursor:"pointer",boxShadow:`0 0 25px ${b.color}44`,marginTop:6}}>{t("toBattle")}</button>
           </div>
         )}
       </div>
@@ -987,7 +1412,7 @@ function Game() {
 
         <div style={{fontFamily:F,fontSize:7,color:"#44ff88",marginBottom:10,animation:"fadeSlide 0.5s ease-out 1.5s both"}}>{t("passedStage")} {b.stage}/5 {t("passed")}</div>
         <div style={{display:"flex",gap:4,marginBottom:12,justifyContent:"center"}}>{BOSSES.map((_,i)=><div key={i} style={{width:36,height:5,borderRadius:3,background:i<=bossIdx?"#44ff88":"#333",transition:"background 0.3s",transitionDelay:`${1.6+i*0.1}s`}}/>)}</div>
-        <button onClick={nextBoss} style={{fontFamily:F,fontSize:lang==="zh"?12:10,background:"linear-gradient(180deg,#44ff88,#119944)",color:"#fff",border:"none",padding:"11px 24px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 25px #44ff8844",animation:"fadeSlide 0.5s ease-out 1.8s both"}}>{t("nextStage")}</button>
+        <button onPointerDown={(e)=>{e.preventDefault();nextBoss();}} style={{fontFamily:F,fontSize:lang==="zh"?12:10,background:"linear-gradient(180deg,#44ff88,#119944)",color:"#fff",border:"none",padding:"11px 24px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 25px #44ff8844",animation:"fadeSlide 0.5s ease-out 1.8s both"}}>{t("nextStage")}</button>
       </div>
     </div>
   );}
@@ -1051,7 +1476,7 @@ function Game() {
           </div>
           <div style={{fontFamily:F,fontSize:4,color:"#555"}}>{t("season2sub")}</div>
         </div>
-        <button onClick={()=>{setScreen("title");setBossIdx(0);}} style={{fontFamily:F,fontSize:lang==="zh"?12:10,background:"linear-gradient(180deg,#ffaa00,#996600)",color:"#fff",border:"none",padding:"11px 24px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 25px #ffaa0044",animation:"fadeSlide 0.5s ease-out 1.7s both"}}>{t("toMenuShort")}</button>
+        <button onPointerDown={(e)=>{e.preventDefault();setScreen("title");setBossIdx(0);}} style={{fontFamily:F,fontSize:lang==="zh"?12:10,background:"linear-gradient(180deg,#ffaa00,#996600)",color:"#fff",border:"none",padding:"11px 24px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 25px #ffaa0044",animation:"fadeSlide 0.5s ease-out 1.7s both"}}>{t("toMenuShort")}</button>
         <div style={{marginTop:6,fontFamily:F,fontSize:4,color:"#555",animation:"fadeSlide 0.5s ease-out 1.9s both"}}>{t("copyright")} • gemiviet26@gmail.com</div>
       </div>
     </div>
@@ -1065,7 +1490,7 @@ function Game() {
       <h2 style={{fontFamily:F,fontSize:lang==="zh"?20:17,color:"#ff2222",marginBottom:6,textShadow:"0 0 20px #ff2222"}}>{t("defeat")}</h2>
       <div style={{fontFamily:F2,fontSize:10,color:"#888",marginBottom:4}}>{tObj(b.name)} {t("bossWins")}</div>
       <div style={{fontFamily:F,fontSize:lang==="zh"?9:7,color:"#777",marginBottom:14,textAlign:"center",lineHeight:2,maxWidth:380,whiteSpace:"pre-line",padding:"8px 12px",background:"rgba(0,0,0,0.3)",borderRadius:6}}>{resultQuote}</div>
-      <button onClick={()=>{setScreen("title");setBossIdx(0);}} style={{fontFamily:F,fontSize:lang==="zh"?12:10,background:"linear-gradient(180deg,#ff4444,#aa1111)",color:"#fff",border:"none",padding:"11px 24px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 20px #ff444444",marginBottom:14}}>{t("toMenu")}</button>
+      <button onPointerDown={(e)=>{e.preventDefault();setScreen("title");setBossIdx(0);}} style={{fontFamily:F,fontSize:lang==="zh"?12:10,background:"linear-gradient(180deg,#ff4444,#aa1111)",color:"#fff",border:"none",padding:"11px 24px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 20px #ff444444",marginBottom:14}}>{t("toMenu")}</button>
       <div style={{padding:"8px 12px",background:"rgba(255,170,0,0.06)",border:"1px solid #ffaa0022",borderRadius:8,maxWidth:360,textAlign:"center"}}>
         <div style={{fontFamily:F,fontSize:6,color:"#ffaa00",marginBottom:3}}>{t("season2defeat")}</div>
         <div style={{fontFamily:F2,fontSize:lang==="zh"?8:7,color:"#888",lineHeight:1.8}}>
@@ -1109,8 +1534,8 @@ function Game() {
         {combo>2&&<div style={{position:"absolute",top:8,left:12,fontFamily:F,fontSize:8,color:"#ffaa00",textShadow:"0 0 8px #ffaa00"}}>COMBO x{combo}!</div>}
       </div>
       <div style={{padding:"8px 10px",background:"linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.6))",display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}}>
-        <button onClick={()=>playerAttack(false)} disabled={cd>0||slowMo} style={{fontFamily:F,fontSize:lang==="zh"?10:8,background:cd>0||slowMo?"#333":`linear-gradient(180deg,${player?.color||"#f44"},${player?.dark||"#911"})`,color:"#fff",border:"none",padding:"8px 12px",borderRadius:6,cursor:cd>0||slowMo?"not-allowed":"pointer",opacity:cd>0||slowMo?.5:1,minWidth:80}}>{t("atkBtn")}</button>
-        <button onClick={()=>playerAttack(true)} disabled={pSp<100||slowMo} style={{fontFamily:F,fontSize:lang==="zh"?10:8,background:pSp>=100&&!slowMo?"linear-gradient(180deg,#ffaa00,#ff6600)":"#333",color:"#fff",border:"none",padding:"8px 12px",borderRadius:6,cursor:pSp>=100&&!slowMo?"pointer":"not-allowed",opacity:pSp>=100&&!slowMo?1:.5,animation:pSp>=100&&!slowMo?"pulse .4s infinite alternate":"none",minWidth:85}}>{t("spBtn")}</button>
+        <button onPointerDown={(e)=>{e.preventDefault();playerAttack(false);}} disabled={cd>0||slowMo} style={{fontFamily:F,fontSize:lang==="zh"?10:8,background:cd>0||slowMo?"#333":`linear-gradient(180deg,${player?.color||"#f44"},${player?.dark||"#911"})`,color:"#fff",border:"none",padding:"8px 12px",borderRadius:6,cursor:cd>0||slowMo?"not-allowed":"pointer",opacity:cd>0||slowMo?.5:1,minWidth:80}}>{t("atkBtn")}</button>
+        <button onPointerDown={(e)=>{e.preventDefault();playerAttack(true);}} disabled={pSp<100||slowMo} style={{fontFamily:F,fontSize:lang==="zh"?10:8,background:pSp>=100&&!slowMo?"linear-gradient(180deg,#ffaa00,#ff6600)":"#333",color:"#fff",border:"none",padding:"8px 12px",borderRadius:6,cursor:pSp>=100&&!slowMo?"pointer":"not-allowed",opacity:pSp>=100&&!slowMo?1:.5,animation:pSp>=100&&!slowMo?"pulse .4s infinite alternate":"none",minWidth:85}}>{t("spBtn")}</button>
         <button onMouseDown={()=>setPBlock(true)} onMouseUp={()=>setPBlock(false)} onMouseLeave={()=>setPBlock(false)} onTouchStart={e=>{e.preventDefault();setPBlock(true);}} onTouchEnd={()=>setPBlock(false)}
           style={{fontFamily:F,fontSize:lang==="zh"?10:8,background:pBlock?"linear-gradient(180deg,#44aaff,#2266aa)":"linear-gradient(180deg,#444,#333)",color:"#fff",border:"none",padding:"8px 12px",borderRadius:6,cursor:"pointer",minWidth:80}}>{t("blkBtn")}</button>
       </div>
@@ -1120,7 +1545,10 @@ function Game() {
         <span style={{fontFamily:F,fontSize:5,color:pSp>=100?"#ffaa00":"#666"}}>{Math.round(pSp)}%</span>
       </div>
       <div style={{padding:"2px 10px 3px",maxHeight:45,overflow:"hidden"}}>{log.slice(-3).map((l,i)=><div key={l.id} style={{fontFamily:F,fontSize:5,color:`rgba(150,150,150,${.35+(i/3)*.65})`,marginBottom:1}}>{l.t}</div>)}</div>
-      <div style={{padding:"1px 10px 4px",fontFamily:F,fontSize:lang==="zh"?6:5,color:"#444",textAlign:"center"}}>{t("controls")}</div>
+      <div style={{padding:"1px 10px 4px",fontFamily:F,fontSize:lang==="zh"?6:5,color:"#444",textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+        {t("controls")}
+        <button onPointerDown={(e)=>{e.preventDefault();setIsMuted(AudioEngine.toggleMute());}} style={{background:"none",border:"1px solid #333",borderRadius:4,padding:"2px 6px",cursor:"pointer",fontSize:10,color:"#666",WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>{isMuted?"🔇":"🔊"}</button>
+      </div>
     </div>
   );
 }
