@@ -230,7 +230,7 @@ const BOSSES = [
       en: "Guardian of the First Stage",
       zh: "第一道工序的守护者",
     },
-    hp: 110, maxHp: 110, attack: 10, defense: 12, speed: 4, special: 22,
+    hp: 120, maxHp: 120, attack: 12, defense: 12, speed: 4, special: 24,
     specialName: { ru: "ЖИДКИЙ МЕТАЛЛ", en: "MOLTEN METAL", zh: "液态金属" },
     specialQuote: {
       ru: "РАСПЛАВЛЮ ТЕБЯ В ЧУГУН ВТОРОГО СОРТА!",
@@ -280,7 +280,7 @@ const BOSSES = [
       en: "Keeper of the Second Stage",
       zh: "第二道工序的守护者",
     },
-    hp: 150, maxHp: 150, attack: 16, defense: 8, speed: 6, special: 30,
+    hp: 165, maxHp: 165, attack: 18, defense: 9, speed: 6, special: 33,
     specialName: { ru: "ГИДРАВЛИЧЕСКИЙ ПРЕСС", en: "HYDRAULIC CRUSH", zh: "液压冲击" },
     specialQuote: {
       ru: "Я СОГНУ ТЕБЯ! И ТВОИ АМБИЦИИ!",
@@ -327,7 +327,7 @@ const BOSSES = [
       en: "Six-Armed Demon of Stage Three",
       zh: "第三道工序的六臂恶魔",
     },
-    hp: 200, maxHp: 200, attack: 14, defense: 7, speed: 10, special: 26,
+    hp: 220, maxHp: 220, attack: 17, defense: 9, speed: 10, special: 30,
     specialName: { ru: "ШЕСТИОСЕВОЙ ЗАЛП", en: "SIX-AXIS BARRAGE", zh: "六轴齐射" },
     specialQuote: {
       ru: "6 ГОРЕЛОК! 6 ОСЕЙ! 600 АМПЕР НЕНАВИСТИ!",
@@ -377,7 +377,7 @@ const BOSSES = [
       en: "Grand Master of Stage Four",
       zh: "第四道工序的大师",
     },
-    hp: 260, maxHp: 260, attack: 18, defense: 10, speed: 8, special: 35,
+    hp: 290, maxHp: 290, attack: 21, defense: 12, speed: 8, special: 40,
     specialName: { ru: "АВТОСМЕНА ЯРОСТИ", en: "FURY TOOL CHANGE", zh: "暴怒换刀" },
     specialQuote: {
       ru: "ИНСТРУМЕНТ №37: МОЛОТ ПРАВОСУДИЯ!",
@@ -427,7 +427,7 @@ const BOSSES = [
       en: "FINAL BOSS — Lord of the Fifth Stage",
       zh: "最终BOSS——第五道工序之主",
     },
-    hp: 350, maxHp: 350, attack: 22, defense: 14, speed: 5, special: 50,
+    hp: 400, maxHp: 400, attack: 26, defense: 16, speed: 5, special: 58,
     specialName: { ru: "ПОРТАЛЬНЫЙ АРМАГЕДДОН", en: "GANTRY ARMAGEDDON", zh: "龙门末日" },
     specialQuote: {
       ru: "120 ТОНН ЛЕТЯТ ТЕБЕ В ЛИЦО! С ЛЮБОВЬЮ ИЗ УХАНЯ!",
@@ -545,6 +545,35 @@ const GAMEOVER_PHRASES = {
     "工会提交了投诉\n关于格斗游戏中的劳动条件。",
     "财务已经把你核销了……\n但你就像一台1962年的车床——经久耐用。",
   ],
+};
+
+// Boss combat quips — short speech bubble during battle
+const BOSS_QUIPS = {
+  furnace: {
+    ru:["Жарковато?","Плавлю...","🔥","Ты — шлак.","На переплавку!"],
+    en:["Too hot?","Melting...","🔥","You're slag.","To the scrap!"],
+    zh:["太热了？","融化中...","🔥","你是废渣。","回炉重造！"]
+  },
+  brake: {
+    ru:["Гнись!","Хрусть.","⚡","Давление!","Ты — жесть."],
+    en:["Bend!","*CRACK*","⚡","Pressure!","You're sheet metal."],
+    zh:["弯！","咔嚓。","⚡","加压！","你是铁皮。"]
+  },
+  welder: {
+    ru:["Шов!","Тебя не спасёт заземление.","✨","Искра!","Прожгу насквозь."],
+    en:["Seam!","Grounding won't save you.","✨","Spark!","Burning through."],
+    zh:["焊缝！","接地线救不了你。","✨","火花！","烧穿你。"]
+  },
+  center: {
+    ru:["Фрезерую.","G-code: DELETE YOU","⚙️","Точность — сила.","Вне допуска!"],
+    en:["Milling.","G-code: DELETE YOU","⚙️","Precision is power.","Out of tolerance!"],
+    zh:["铣削中。","G代码：删除你","⚙️","精度就是力量。","超差了！"]
+  },
+  wuhan: {
+    ru:["Портал закрывается.","НЕЗНАЧИТЕЛЬНЫЙ.","💀","Я — 200 тонн.","Даже не щекотно."],
+    en:["Portal closing.","INSIGNIFICANT.","💀","I am 200 tons.","Didn't even tickle."],
+    zh:["龙门关闭中。","微不足道。","💀","我有200吨。","连痒都不痒。"]
+  }
 };
 
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -1182,6 +1211,7 @@ function Game() {
   const [cd, setCd] = useState(0);
   const [hovered, setHovered] = useState(null);
   const [slowMo, setSlowMo] = useState(false);
+  const [bossTaunt, setBossTaunt] = useState("");
   const [energyCharge, setEnergyCharge] = useState(false);
   const [specialFlash, setSpecialFlash] = useState(null);
   const [shockwaveRings, setShockwaveRings] = useState([]);
@@ -1191,7 +1221,7 @@ function Game() {
 
   const hpRef=useRef({p:100,b:100}); const scrRef=useRef("title");
   const bBlockRef=useRef(false); const pBlockRef=useRef(false);
-  useEffect(()=>{scrRef.current=screen;if(screen!=="battle"){setShake(0);setSlowMo(false);setEnergyCharge(false);setSpecialFlash(null);setScreenTint(null);setShockwaveRings([]);setParticles([]);}
+  useEffect(()=>{scrRef.current=screen;if(screen!=="battle"){setShake(0);setSlowMo(false);setEnergyCharge(false);setSpecialFlash(null);setScreenTint(null);setShockwaveRings([]);setParticles([]);setBossTaunt("");}
     // Music transitions — only if audio was initialized by user gesture
     if(!audioInitRef.current) return;
     const startMusic = () => {
@@ -1259,6 +1289,13 @@ function Game() {
     setPAtk(true);setCd(550);
     setTimeout(()=>{
       if(hpRef.current.b<=0)return;const b=BOSSES[bossIdx];
+      // Boss dodge: stages 4-5, 12% chance (not when blocking)
+      if(bossIdx>=3&&!bBlockRef.current&&Math.random()<0.12){
+        AudioEngine.playBlock();
+        flash(lang==="ru"?"УКЛОНЕНИЕ!":lang==="zh"?"闪避！":"DODGE!",600);
+        addLog(`💨 ${tObj(b.name)} ${lang==="ru"?"увернулся!":lang==="zh"?"闪避了！":"dodged!"}`);
+        setCd(300);return;
+      }
       const dmg=Math.max(1,Math.round((player.attack-b.defense*0.25)*(0.8+Math.random()*0.4)*(bBlockRef.current?0.25:1)));
       setBHit(true);setTimeout(()=>setBHit(false),180);
       const hx=440+Math.random()*50,hy=155+Math.random()*50;spawn(hx,hy,player.color,12);doShake(5);
@@ -1274,23 +1311,57 @@ function Game() {
   const cpuAct=useCallback(()=>{
     if(scrRef.current!=="battle"||hpRef.current.p<=0||hpRef.current.b<=0||slowMo)return;
     const b=BOSSES[bossIdx];const r=Math.random();
-    if(r<0.12){setBBlock(true);addLog(`🛡️ ${tObj(b.name)}`);setTimeout(()=>setBBlock(false),900);return;}
-    if(bSp>=100&&Math.random()<0.4){doSpecialAttack(false);return;}
+    // Rage makes boss less defensive, more aggressive
+    const inRage=bossIdx>=2&&hpRef.current.b>0&&hpRef.current.b<b.maxHp*0.3;
+    const blockChance=inRage?0.04:0.12;
+    const specialChance=inRage?0.65:0.4;
+    if(r<blockChance){setBBlock(true);addLog(`🛡️ ${tObj(b.name)}`);setTimeout(()=>setBBlock(false),900);return;}
+    if(bSp>=100&&Math.random()<specialChance){doSpecialAttack(false);return;}
     setBAtk(true);
     setTimeout(()=>{
       if(hpRef.current.p<=0)return;
-      const dmg=Math.max(1,Math.round((b.attack-(player?.defense||8)*0.25)*(0.8+Math.random()*0.4)*(pBlockRef.current?0.25:1)));
+      // Critical hit: stages 3-5, 15% chance, 1.8x damage
+      const isCrit=bossIdx>=2&&Math.random()<0.15;
+      const critMul=isCrit?1.8:1;
+      const baseDmg=Math.max(1,Math.round((b.attack-(player?.defense||8)*0.25)*(0.8+Math.random()*0.4)*(pBlockRef.current?0.25:1)*critMul));
+      const dmg=baseDmg;
       if(b.id==="welder"&&!pBlockRef.current&&Math.random()<0.3){const d2=Math.round(dmg*0.6);addLog(`🤖 x2! (-${d2})`);setTimeout(()=>{setPHit(true);setTimeout(()=>setPHit(false),150);spawn(180,180,b.color,8);setPHp(prev=>Math.max(0,prev-d2));},200);}
       setPHit(true);setTimeout(()=>setPHit(false),180);
-      const hx=140+Math.random()*50,hy=155+Math.random()*50;spawn(hx,hy,b.color,10,b.id==="furnace"?"fire":"spark");doShake(5);
-      if(pBlockRef.current){AudioEngine.playBlock();flash(t("blocked"),600);addLog(`🛡️ ${t("blocked")} (-${dmg})`);}else{AudioEngine.playHeavyHit();setCombo(0);addLog(`🤖 ${pick(PLAYER_HIT_PHRASES[lang]||PLAYER_HIT_PHRASES.ru)} (-${dmg})`);}
-      setDmgNums(d=>[...d,{x:hx,y:hy,v:dmg,col:b.color,sp:false,id:Date.now()}]);
+      const hx=140+Math.random()*50,hy=155+Math.random()*50;
+      if(isCrit){spawn(hx,hy,b.color,25,"explosion");spawn(hx,hy,"#fff",10,"spark");doShake(14);AudioEngine.playSpecialImpact();}
+      else{spawn(hx,hy,b.color,10,b.id==="furnace"?"fire":"spark");doShake(5);}
+      if(pBlockRef.current){AudioEngine.playBlock();flash(t("blocked"),600);addLog(`🛡️ ${t("blocked")} (-${dmg})`);}
+      else{
+        if(isCrit){AudioEngine.playHeavyHit();flash("💀 "+(lang==="ru"?"КРИТ!":lang==="zh"?"暴击！":"CRITICAL!")+" 💀",800);addLog(`💀 ${lang==="ru"?"КРИТИЧЕСКИЙ УДАР":lang==="zh"?"暴击":"CRITICAL HIT"}! (-${dmg})`);}
+        else{AudioEngine.playHeavyHit();addLog(`🤖 ${pick(PLAYER_HIT_PHRASES[lang]||PLAYER_HIT_PHRASES.ru)} (-${dmg})`);}
+        setCombo(0);
+        // Boss speech bubble — 35% chance on hit
+        if(Math.random()<0.35&&BOSS_QUIPS[b.id]){const q=pick(BOSS_QUIPS[b.id][lang]||BOSS_QUIPS[b.id].ru);setBossTaunt(q);setTimeout(()=>setBossTaunt(""),1200);}
+      }
+      setDmgNums(d=>[...d,{x:hx,y:hy,v:dmg,col:isCrit?"#ff0000":b.color,sp:isCrit,id:Date.now()}]);
       setPHp(prev=>{const next=Math.max(0,prev-dmg);if(next<=0)setTimeout(()=>{setResultQuote(pick(GAMEOVER_PHRASES[lang]||GAMEOVER_PHRASES.ru));setScreen("gameover");},600);return next;});
-      setBSp(s=>Math.min(100,s+9));
+      setBSp(s=>Math.min(100,s+(isCrit?18:9)));
     },180);setTimeout(()=>setBAtk(false),350);
   },[bossIdx,bSp,player,slowMo,lang,spawn,doShake,flash,addLog,doSpecialAttack,t,tObj]);
 
-  useEffect(()=>{if(screen==="battle"){const b=BOSSES[bossIdx];const base=b.id==="furnace"?1800:b.id==="welder"?900:b.id==="wuhan"?1400:1200;const iv=setInterval(cpuAct,base+Math.random()*600);return()=>clearInterval(iv);}},[screen,bossIdx,cpuAct]);
+  useEffect(()=>{if(screen==="battle"){const b=BOSSES[bossIdx];
+    const baseMin=b.id==="furnace"?1400:b.id==="welder"?600:b.id==="wuhan"?1000:900;
+    const baseMax=b.id==="furnace"?2400:b.id==="welder"?1500:b.id==="wuhan"?2200:2000;
+    let alive=true;
+    function scheduleNext(){
+      if(!alive)return;
+      // Check rage: boss HP < 30% on stages 3-5 = faster
+      const inRage=bossIdx>=2&&hpRef.current.b>0&&hpRef.current.b<b.maxHp*0.3;
+      const min=inRage?baseMin*0.5:baseMin;
+      const max=inRage?baseMax*0.55:baseMax;
+      const delay=min+Math.random()*(max-min);
+      // Occasionally do a burst: two quick attacks
+      const burst=inRage&&Math.random()<0.2;
+      setTimeout(()=>{if(!alive)return;cpuAct();if(burst)setTimeout(()=>{if(alive)cpuAct();},250+Math.random()*200);scheduleNext();},delay);
+    }
+    scheduleNext();
+    return()=>{alive=false;};
+  }},[screen,bossIdx,cpuAct]);
   useEffect(()=>{const kd=e=>{if(scrRef.current!=="battle")return;if("aAфФ".includes(e.key))playerAttack(false);if("sSыЫ".includes(e.key))playerAttack(true);if("dDвВ".includes(e.key))setPBlock(true);};const ku=e=>{if("dDвВ".includes(e.key))setPBlock(false);};window.addEventListener("keydown",kd);window.addEventListener("keyup",ku);return()=>{window.removeEventListener("keydown",kd);window.removeEventListener("keyup",ku);};},[playerAttack]);
 
   const startBoss=useCallback((i)=>{AudioEngine.playBuzz();setPlayer({...PLAYERS[i]});setBossIdx(0);setLoreIdx(0);setScreen("lore");},[]);
@@ -1548,9 +1619,19 @@ function Game() {
       {/* ── BOSS RAGE — pulsing edges in boss color ── */}
       {bossRage&&<div style={{position:"absolute",inset:0,"--rc":`${boss.color}66`,"--rc2":`${boss.color}22`,animation:"ragePulse 0.6s ease-in-out infinite",pointerEvents:"none",zIndex:46}}/>}
       {bossRage&&<div style={{position:"absolute",top:6,left:"50%",transform:"translateX(-50%)",fontFamily:F,fontSize:6,color:boss.color,zIndex:60,letterSpacing:3,textShadow:`0 0 8px ${boss.color}`,animation:"pulse .3s infinite alternate",whiteSpace:"nowrap"}}>⚠️ {lang==="ru"?"ЯРОСТЬ":lang==="zh"?"狂怒":"RAGE"} ⚠️</div>}
-      {/* ── PLAYER DANGER — red vignette + cracked glass ── */}
+      {/* ── PLAYER DANGER — red vignette + cracked glass (scales with damage) ── */}
       {playerDanger&&<div style={{position:"absolute",inset:0,animation:"dangerVignette 0.8s ease-in-out infinite",pointerEvents:"none",zIndex:47}}/>}
-      {playerDanger&&<svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",zIndex:48,opacity:0.25}} viewBox="0 0 640 700"><path d="M320 0L305 120L280 95L265 180L240 155L220 250L195 220L180 300L320 280L340 350L370 310L400 380L420 340L450 420L470 370L500 450L520 400L560 500" stroke="#fff" strokeWidth="1.5" fill="none"/><path d="M320 0L335 100L360 80L375 160L400 140L415 230L440 200L460 290" stroke="#fff" strokeWidth="1" fill="none" opacity="0.6"/><path d="M280 95L250 130L230 110L200 170" stroke="#fff" strokeWidth="0.8" fill="none" opacity="0.4"/><path d="M370 310L390 350L410 330L430 370L460 350" stroke="#fff" strokeWidth="0.8" fill="none" opacity="0.4"/></svg>}
+      {playerDanger&&(()=>{const hpPct=pHp/player.maxHp;const severity=1-hpPct/0.3;const op=0.2+severity*0.5;const sw=1+severity*1.5;return <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",zIndex:48,opacity:op}} viewBox="0 0 640 700">
+        <path d="M320 0L305 120L280 95L265 180L240 155L220 250L195 220L180 300L320 280L340 350L370 310L400 380L420 340L450 420L470 370L500 450L520 400L560 500" stroke="#fff" strokeWidth={sw*1.2} fill="none"/>
+        <path d="M320 0L335 100L360 80L375 160L400 140L415 230L440 200L460 290" stroke="#fff" strokeWidth={sw} fill="none" opacity="0.7"/>
+        <path d="M280 95L250 130L230 110L200 170L175 190L150 230" stroke="#fff" strokeWidth={sw*0.8} fill="none" opacity="0.6"/>
+        <path d="M370 310L390 350L410 330L430 370L460 350L490 390" stroke="#fff" strokeWidth={sw*0.8} fill="none" opacity="0.6"/>
+        {severity>0.3&&<path d="M265 180L230 200L200 190L170 230L140 250L110 300" stroke="#fff" strokeWidth={sw*0.7} fill="none" opacity="0.5"/>}
+        {severity>0.3&&<path d="M415 230L445 260L470 250L500 290L530 310" stroke="#fff" strokeWidth={sw*0.7} fill="none" opacity="0.5"/>}
+        {severity>0.5&&<path d="M220 250L180 280L150 310L120 350L90 400" stroke="#fff" strokeWidth={sw*0.6} fill="none" opacity="0.4"/>}
+        {severity>0.5&&<path d="M450 420L480 450L510 440L540 480L570 520" stroke="#fff" strokeWidth={sw*0.6} fill="none" opacity="0.4"/>}
+        {severity>0.7&&<><path d="M150 230L110 260L80 300L50 350" stroke="#fff" strokeWidth={sw*0.5} fill="none" opacity="0.35"/><path d="M530 310L560 350L590 380L620 430" stroke="#fff" strokeWidth={sw*0.5} fill="none" opacity="0.35"/><circle cx="320" cy="0" r={6+severity*8} fill="none" stroke="#fff" strokeWidth={sw*0.4} opacity="0.3"/></>}
+      </svg>;})()}
       <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"4px 0 2px"}}>
         <span style={{fontFamily:F,fontSize:5,color:"#555",letterSpacing:2}}>⚙️ {tObj(boss.arena.name)}</span>
         <span style={{fontFamily:F,fontSize:5,color:boss.color}}>{t("stageOf")} {boss.stage}/5</span>
@@ -1573,6 +1654,10 @@ function Game() {
         {energyCharge&&<div style={{position:"absolute",left:100,top:140,width:120,height:120,borderRadius:"50%",border:`3px solid ${player?.color||"#fff"}`,opacity:0.6,"--ec":player?.color||"#fff",animation:"energyPulse 0.4s infinite",pointerEvents:"none"}}/>}
         {player&&<div style={{position:"absolute",left:55,bottom:38,transform:`${pAtk?"translateX(30px)":""} ${pHit?"translateY(-10px)":""}`,transition:slowMo?"transform 0.5s":"transform .12s"}}><PlayerSprite char={player} isAtk={pAtk} isHit={pHit} isBlock={pBlock}/></div>}
         <div style={{position:"absolute",right:boss.id==="wuhan"?25:45,bottom:boss.id==="wuhan"?18:32,transform:`scaleX(-1) ${bAtk?"translateX(25px)":""} ${bHit?"translateY(-10px)":""}`,transition:slowMo?"transform 0.5s":"transform .15s"}}><BossSprite boss={boss} isAtk={bAtk} isHit={bHit} isBlock={bBlock}/></div>
+        {/* Boss speech bubble */}
+        {bossTaunt&&<div style={{position:"absolute",right:boss.id==="wuhan"?60:80,bottom:boss.id==="wuhan"?180:200,background:"rgba(0,0,0,0.85)",color:boss.color,fontFamily:F,fontSize:lang==="zh"?8:6,padding:"4px 8px",borderRadius:6,border:`1px solid ${boss.color}44`,maxWidth:120,textAlign:"center",zIndex:80,animation:"slideIn 0.2s ease-out",pointerEvents:"none"}}>{bossTaunt}<div style={{position:"absolute",bottom:-5,left:"50%",transform:"translateX(-50%)",width:0,height:0,borderLeft:"5px solid transparent",borderRight:"5px solid transparent",borderTop:`5px solid ${boss.color}44`}}/></div>}
+        {/* Boss rage aura on sprite */}
+        {bossRage&&<div style={{position:"absolute",right:boss.id==="wuhan"?15:35,bottom:boss.id==="wuhan"?8:22,width:boss.id==="wuhan"?140:100,height:boss.id==="wuhan"?180:140,borderRadius:"50%",background:`radial-gradient(circle,${boss.color}20,${boss.color}08,transparent 70%)`,animation:"pulse .4s infinite alternate",pointerEvents:"none",zIndex:3}}/>}
         {shockwaveRings.map(r=><div key={r.id} style={{position:"absolute",left:r.x,top:r.y,width:50,height:50,borderRadius:"50%",border:`3px solid ${r.col}`,pointerEvents:"none",animation:"shockRing 0.8s ease-out forwards",zIndex:40}}/>)}
         <div style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden"}}>{particles.map(p=><div key={p.id} style={{position:"absolute",left:p.x,top:p.y,width:p.size,height:p.size,borderRadius:p.type==="spark"?"50%":p.type==="fire"?"30%":p.type==="energy"?"50%":"2px",background:p.type==="energy"?`radial-gradient(circle,${p.color},transparent)`:p.color,opacity:p.life/p.maxLife,boxShadow:p.type==="energy"?`0 0 ${p.size*4}px ${p.color}`:`0 0 ${p.size*2}px ${p.color}`,transform:p.type==="energy"?`scale(${1+(1-p.life/p.maxLife)*2})`:""}}/>)}</div>
         {dmgNums.map(d=><div key={d.id} style={{position:"absolute",left:d.x,top:d.y,fontFamily:F,fontSize:d.sp?22:14,color:d.sp?"#fff":d.col,textShadow:d.sp?`0 0 15px ${d.col},0 0 30px ${d.col}`:`0 0 8px ${d.col}`,animation:"floatUp 1s ease-out forwards",pointerEvents:"none",zIndex:100,fontWeight:"bold"}}>{d.sp?"💥":""}-{d.v}</div>)}
