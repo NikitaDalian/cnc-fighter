@@ -724,11 +724,19 @@ const AudioEngine = (() => {
     if (ctx) return;
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     masterGain = ctx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(ctx.destination);
-    musicGain = ctx.createGain(); musicGain.gain.value = 0.18; musicGain.connect(masterGain);
+    musicGain = ctx.createGain(); musicGain.gain.value = 0.3; musicGain.connect(masterGain);
     sfxGain = ctx.createGain(); sfxGain.gain.value = 0.6; sfxGain.connect(masterGain);
   }
 
-  function ensureCtx() { if (!ctx) init(); if (ctx.state === 'suspended') ctx.resume(); }
+  function ensureCtx() {
+    if (!ctx) init();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+      // If context was just resumed, schedule notes slightly in the future
+      return true; // signal: freshly resumed
+    }
+    return false;
+  }
 
   // Note frequency helper
   const noteFreq = (note, oct) => {
@@ -739,11 +747,13 @@ const AudioEngine = (() => {
   // Quick oscillator
   function osc(type, freq, start, dur, gain = 0.15, dest = sfxGain) {
     if (!ctx || muted) return;
+    // Safety: never schedule in the past
+    const safeStart = Math.max(start, ctx.currentTime + 0.005);
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type; o.frequency.value = freq;
-    g.gain.setValueAtTime(gain, start);
-    g.gain.exponentialRampToValueAtTime(0.001, start + dur);
-    o.connect(g); g.connect(dest); o.start(start); o.stop(start + dur);
+    g.gain.setValueAtTime(gain, safeStart);
+    g.gain.exponentialRampToValueAtTime(0.001, safeStart + dur);
+    o.connect(g); g.connect(dest); o.start(safeStart); o.stop(safeStart + dur);
     return { osc: o, gain: g };
   }
 
@@ -849,7 +859,7 @@ const AudioEngine = (() => {
     osc('sine', 131, t + 1.3, 2.5, 0.05);
   }
 
-  // Looping ambient for result screens
+  // Looping ambient for result screens — starts immediately audible
   function startResultMusic() {
     stopMusic();
     if (muted) return;
@@ -859,26 +869,24 @@ const AudioEngine = (() => {
 
     function scheduleResult() {
       if (!ctx || muted || !musicPlaying) return;
-      const t = ctx.currentTime + 0.05;
+      const t = ctx.currentTime + 0.02;
       barCount++;
 
-      // Dark triumphant drone
-      osc('sine', root, t, 4.0, 0.05, musicGain);
-      osc('sine', root * 3/2, t + 0.5, 3.0, 0.03, musicGain); // fifth
-      osc('triangle', root * 2, t + 1.0, 2.5, 0.02, musicGain);
+      // Full chord — loud and present from first note
+      osc('sine', root, t, 2.5, 0.09, musicGain);
+      osc('sine', root * 6/5, t, 2.3, 0.06, musicGain);
+      osc('sine', root * 3/2, t, 2.3, 0.05, musicGain);
+      osc('triangle', root * 2, t + 0.05, 2.0, 0.04, musicGain);
 
-      // Slow minor arpeggio — reflective, not cheerful
-      const scale = [1, 6/5, 3/2, 2]; // minor triad + octave
+      // Arpeggio — higher octave, louder
+      const scale = [1, 6/5, 3/2, 2];
       scale.forEach((r, i) => {
-        osc('triangle', root * 2 * r, t + i * 0.8, 1.0, 0.02, musicGain);
+        osc('triangle', root * 4 * r, t + 0.15 + i * 0.35, 0.6, 0.04, musicGain);
       });
 
-      // Subtle industrial pulse
-      if (barCount % 2 === 0) {
-        kick(t + 1.5, musicGain);
-      }
+      if (barCount % 2 === 0) kick(t + 0.9, musicGain);
 
-      loopTimer = setTimeout(scheduleResult, 3500);
+      loopTimer = setTimeout(scheduleResult, 2100);
     }
 
     musicPlaying = true;
@@ -907,6 +915,31 @@ const AudioEngine = (() => {
     ensureCtx(); const t = ctx.currentTime;
     osc('square', 900, t, 0.03, 0.08);
     osc('square', 1200, t + 0.03, 0.03, 0.06);
+  }
+
+  // Electric buzz "дззззз" — industrial power-up for major transitions
+  function playBuzz() {
+    ensureCtx(); const t = ctx.currentTime;
+    // Core buzz — sawtooth for that raw electrical feel
+    osc('sawtooth', 80, t, 0.25, 0.2);
+    osc('sawtooth', 120, t, 0.22, 0.12);
+    // High frequency sizzle
+    osc('square', 240, t, 0.18, 0.06);
+    osc('square', 360, t + 0.02, 0.15, 0.04);
+    // Crackling noise
+    noise(t, 0.12, 0.1);
+    noise(t + 0.08, 0.1, 0.06);
+    // Sub thump
+    osc('sine', 45, t, 0.2, 0.15);
+    // Frequency sweep up — the "ззз" rising part
+    const sweep = ctx.createOscillator(), sg = ctx.createGain();
+    sweep.type = 'sawtooth';
+    sweep.frequency.setValueAtTime(60, t);
+    sweep.frequency.exponentialRampToValueAtTime(300, t + 0.2);
+    sg.gain.setValueAtTime(0.1, t);
+    sg.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    sweep.connect(sg); sg.connect(sfxGain);
+    sweep.start(t); sweep.stop(t + 0.3);
   }
 
   function playLoreAdvance() {
@@ -1001,45 +1034,45 @@ const AudioEngine = (() => {
         // BASS — deep, distorted square
         const bn = bass[i] % sc.length;
         const bassFreq = root * sc[bn];
-        osc('square', bassFreq, t, step * 0.9, 0.14, musicGain);
+        osc('square', bassFreq, t, step * 0.9, 0.045, musicGain);
         // Sub-bass sine for weight
-        osc('sine', bassFreq * 0.5, t, step * 0.9, 0.1, musicGain);
+        osc('sine', bassFreq * 0.5, t, step * 0.9, 0.03, musicGain);
 
         // ARP — mid-range menacing
         if (arp[i] !== 99) {
           const an = arp[i] % sc.length;
           const arpFreq = root * 4 * sc[an];
-          osc('sawtooth', arpFreq, t, step * 0.4, 0.035, musicGain);
+          osc('sawtooth', arpFreq, t, step * 0.4, 0.018, musicGain);
         }
 
         // POWER STABS — every 4 bars, octave power chord
         if (barCount % 4 === 0 && i === 0) {
-          osc('sawtooth', root * 2, t, step * 4, 0.06, musicGain);
-          osc('sawtooth', root * 3, t, step * 4, 0.04, musicGain);
-          osc('square', root * 4, t, step * 4, 0.03, musicGain);
+          osc('sawtooth', root * 2, t, step * 4, 0.03, musicGain);
+          osc('sawtooth', root * 3, t, step * 4, 0.02, musicGain);
+          osc('square', root * 4, t, step * 4, 0.015, musicGain);
         }
 
         // LEAD — every 2 bars, haunting melody fragment
         if (barCount % 2 === 0 && i % 4 === 0) {
           const melIdx = (barCount + i / 4) % sc.length;
           const melFreq = root * 8 * sc[melIdx];
-          osc('triangle', melFreq, t, step * 3, 0.02, musicGain);
+          osc('triangle', melFreq, t, step * 3, 0.012, musicGain);
         }
 
         // KICK
         if (kicks[i]) kick(t, musicGain);
 
         // SNARE (noise burst)
-        if (snares[i]) noise(t, 0.08, 0.06, musicGain);
+        if (snares[i]) noise(t, 0.08, 0.03, musicGain);
 
         // HIHAT — constant 8ths, quiet
-        if (i % 2 === 0) noise(t, 0.02, 0.02, musicGain);
+        if (i % 2 === 0) noise(t, 0.02, 0.01, musicGain);
       }
 
       // Descending doom note every 8 bars for DREAD
       if (barCount % 8 === 0) {
         const t = t0;
-        osc('sine', root * 0.5, t, 16 * step, 0.05, musicGain);
+        osc('sine', root * 0.5, t, 16 * step, 0.025, musicGain);
       }
 
       const barDur = 16 * step;
@@ -1057,48 +1090,41 @@ const AudioEngine = (() => {
     ensureCtx();
     barCount = 0;
 
-    const root = noteFreq('C', 1); // Very low C
+    const root = noteFreq('C', 2); // C2=65Hz — audible on all speakers
 
     function scheduleDrone() {
       if (!ctx || muted || !musicPlaying) return;
-      const t = ctx.currentTime + 0.05;
+      const t = ctx.currentTime + 0.02;
       barCount++;
 
-      // Deep industrial drone — ominous foundation
-      osc('sine', root, t, 5.0, 0.07, musicGain);
-      osc('sine', root * 3/2, t + 0.3, 4.5, 0.03, musicGain); // fifth
-      osc('triangle', root * 2, t + 1.0, 3.5, 0.02, musicGain); // octave
+      // Foundation drone — immediately audible
+      osc('sine', root, t, 3.5, 0.08, musicGain);
+      osc('sine', root * 3/2, t, 3.5, 0.05, musicGain);       // fifth — instant
+      osc('triangle', root * 2, t + 0.15, 3.0, 0.04, musicGain); // octave — near-instant
 
-      // Dissonant cluster — unease
-      osc('sine', root * 16/15, t + 2.0, 2.5, 0.02, musicGain); // minor 2nd = tension
-
-      // Slow epic arpeggiation — like machinery waking up
-      const notes = [1, 6/5, 3/2, 8/5, 2, 8/5, 3/2, 6/5]; // minor chord descending
+      // Arpeggio — louder, starts immediately, not delayed
+      const notes = [1, 6/5, 3/2, 2, 8/5, 3/2, 6/5, 1];
       notes.forEach((ratio, i) => {
-        osc('triangle', root * 4 * ratio, t + i * 0.6, 0.9, 0.02, musicGain);
+        osc('triangle', root * 4 * ratio, t + i * 0.4, 0.6, 0.04, musicGain);
       });
 
-      // Every 4 cycles: epic brass-like stab
-      if (barCount % 4 === 1) {
-        osc('sawtooth', root * 2, t, 2.0, 0.04, musicGain);
-        osc('sawtooth', root * 3, t + 0.05, 1.8, 0.03, musicGain);
-        osc('sawtooth', root * 4, t + 0.1, 1.5, 0.02, musicGain);
+      // Dissonant tension (minor 2nd)
+      osc('sine', root * 2 * 16/15, t + 1.5, 1.8, 0.025, musicGain);
+
+      // Epic brass stab — every cycle has SOMETHING, first cycle always
+      if (barCount % 3 === 1) {
+        osc('sawtooth', root * 2, t, 1.5, 0.05, musicGain);
+        osc('sawtooth', root * 3, t + 0.03, 1.3, 0.035, musicGain);
+        osc('sawtooth', root * 4, t + 0.06, 1.0, 0.025, musicGain);
       }
 
-      // Every 3 cycles: distant industrial thud
-      if (barCount % 3 === 0) {
-        kick(t + 1.0, musicGain);
-        kick(t + 1.4, musicGain);
+      // Industrial thuds
+      if (barCount % 2 === 0) {
+        kick(t + 0.8, musicGain);
+        kick(t + 1.2, musicGain);
       }
 
-      // Every 8 cycles: rising tension swoop
-      if (barCount % 8 === 0) {
-        for (let i = 0; i < 8; i++) {
-          osc('sine', root * (2 + i * 0.5), t + 2.0 + i * 0.3, 0.5, 0.015, musicGain);
-        }
-      }
-
-      loopTimer = setTimeout(scheduleDrone, 4500);
+      loopTimer = setTimeout(scheduleDrone, 3200);
     }
 
     musicPlaying = true;
@@ -1121,7 +1147,7 @@ const AudioEngine = (() => {
 
   return {
     init, playHit, playHeavyHit, playBlock, playSpecialCharge, playSpecialImpact,
-    playCombo, playBossDefeat, playVictory, playGameover, playClick, playLoreAdvance,
+    playCombo, playBossDefeat, playVictory, playGameover, playClick, playBuzz, playLoreAdvance,
     startBattleMusic, startTitleMusic, startResultMusic, stopMusic, toggleMute, isMuted
   };
 })();
@@ -1168,11 +1194,17 @@ function Game() {
   useEffect(()=>{scrRef.current=screen;if(screen!=="battle"){setShake(0);setSlowMo(false);setEnergyCharge(false);setSpecialFlash(null);setScreenTint(null);setShockwaveRings([]);setParticles([]);}
     // Music transitions — only if audio was initialized by user gesture
     if(!audioInitRef.current) return;
-    if(screen==="title"||screen==="select"||screen==="lore"){ AudioEngine.startTitleMusic(); }
-    else if(screen==="battle"){ AudioEngine.startBattleMusic(BOSSES[bossIdx]?.id); }
-    else if(screen==="bossDefeat"){ AudioEngine.stopMusic(); AudioEngine.playBossDefeat(); setTimeout(()=>{if(scrRef.current==="bossDefeat")AudioEngine.startResultMusic();},2000); }
-    else if(screen==="victory"){ AudioEngine.stopMusic(); AudioEngine.playVictory(); setTimeout(()=>{if(scrRef.current==="victory")AudioEngine.startResultMusic();},2500); }
-    else if(screen==="gameover"){ AudioEngine.stopMusic(); AudioEngine.playGameover(); }
+    const startMusic = () => {
+      if(screen==="title"||screen==="select"||screen==="lore"){ AudioEngine.startTitleMusic(); }
+      else if(screen==="battle"){ AudioEngine.startBattleMusic(BOSSES[bossIdx]?.id); }
+      else if(screen==="bossDefeat"){ AudioEngine.stopMusic(); AudioEngine.playBossDefeat(); setTimeout(()=>{if(scrRef.current==="bossDefeat")AudioEngine.startResultMusic();},800); }
+      else if(screen==="victory"){ AudioEngine.stopMusic(); AudioEngine.playVictory(); setTimeout(()=>{if(scrRef.current==="victory")AudioEngine.startResultMusic();},1200); }
+      else if(screen==="gameover"){ AudioEngine.stopMusic(); AudioEngine.playGameover(); }
+    };
+    startMusic();
+    // Retry after 150ms in case AudioContext was still resuming
+    const retry = setTimeout(startMusic, 150);
+    return () => clearTimeout(retry);
   },[screen,bossIdx]);
   useEffect(()=>{hpRef.current.p=pHp;},[pHp]); useEffect(()=>{hpRef.current.b=bHp;},[bHp]);
   useEffect(()=>{bBlockRef.current=bBlock;},[bBlock]); useEffect(()=>{pBlockRef.current=pBlock;},[pBlock]);
@@ -1261,12 +1293,12 @@ function Game() {
   useEffect(()=>{if(screen==="battle"){const b=BOSSES[bossIdx];const base=b.id==="furnace"?1800:b.id==="welder"?900:b.id==="wuhan"?1400:1200;const iv=setInterval(cpuAct,base+Math.random()*600);return()=>clearInterval(iv);}},[screen,bossIdx,cpuAct]);
   useEffect(()=>{const kd=e=>{if(scrRef.current!=="battle")return;if("aAфФ".includes(e.key))playerAttack(false);if("sSыЫ".includes(e.key))playerAttack(true);if("dDвВ".includes(e.key))setPBlock(true);};const ku=e=>{if("dDвВ".includes(e.key))setPBlock(false);};window.addEventListener("keydown",kd);window.addEventListener("keyup",ku);return()=>{window.removeEventListener("keydown",kd);window.removeEventListener("keyup",ku);};},[playerAttack]);
 
-  const startBoss=useCallback((i)=>{AudioEngine.playClick();setPlayer({...PLAYERS[i]});setBossIdx(0);setLoreIdx(0);setScreen("lore");},[]);
+  const startBoss=useCallback((i)=>{AudioEngine.playBuzz();setPlayer({...PLAYERS[i]});setBossIdx(0);setLoreIdx(0);setScreen("lore");},[]);
   const initBattle=useCallback(()=>{const b=BOSSES[bossIdx];setPHp(player.maxHp);setBHp(b.maxHp);setPSp(0);setBSp(0);setParticles([]);setDmgNums([]);setCombo(0);setLog([]);setCd(0);setPBlock(false);setBBlock(false);setSlowMo(false);setEnergyCharge(false);setSpecialFlash(null);setScreenTint(null);setShockwaveRings([]);battleStartRef.current=Date.now();setBattleStats({time:0,hits:0,specials:0,maxCombo:0});setScreen("battle");flash(t("fight"),1500);},[bossIdx,player,flash,t]);
   const nextBoss=useCallback(()=>{setBossIdx(i=>i+1);setLoreIdx(0);setScreen("lore");},[]);
 
   const ss=shake>0?{transform:`translate(${(Math.random()-.5)*shake}px,${(Math.random()-.5)*shake}px)`}:{};
-  const css=`@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap');button,div[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}@keyframes pulse{0%{opacity:.6}100%{opacity:1}}@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-70px) scale(1.4)}}@keyframes glow{0%{text-shadow:0 0 20px #ff4444,0 0 40px #ff4444}50%{text-shadow:0 0 30px #ff0044,0 0 60px #ff0044}100%{text-shadow:0 0 20px #ff4444,0 0 40px #ff4444}}@keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes shockRing{0%{transform:translate(-50%,-50%) scale(0);opacity:1}100%{transform:translate(-50%,-50%) scale(4);opacity:0}}@keyframes energyPulse{0%{box-shadow:0 0 20px var(--ec)}50%{box-shadow:0 0 60px var(--ec),0 0 100px var(--ec)}100%{box-shadow:0 0 20px var(--ec)}}@keyframes specialTextGlow{0%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.1);filter:brightness(1.5)}100%{transform:translate(-50%,-50%) scale(1)}}@keyframes screenFlash{0%{opacity:0.8}100%{opacity:0}}`;
+  const css=`@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap');button,div[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}@keyframes pulse{0%{opacity:.6}100%{opacity:1}}@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-70px) scale(1.4)}}@keyframes glow{0%{text-shadow:0 0 20px #ff4444,0 0 40px #ff4444}50%{text-shadow:0 0 30px #ff0044,0 0 60px #ff0044}100%{text-shadow:0 0 20px #ff4444,0 0 40px #ff4444}}@keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes shockRing{0%{transform:translate(-50%,-50%) scale(0);opacity:1}100%{transform:translate(-50%,-50%) scale(4);opacity:0}}@keyframes energyPulse{0%{box-shadow:0 0 20px var(--ec)}50%{box-shadow:0 0 60px var(--ec),0 0 100px var(--ec)}100%{box-shadow:0 0 20px var(--ec)}}@keyframes specialTextGlow{0%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.1);filter:brightness(1.5)}100%{transform:translate(-50%,-50%) scale(1)}}@keyframes screenFlash{0%{opacity:0.8}100%{opacity:0}}@keyframes ragePulse{0%{box-shadow:inset 0 0 30px var(--rc),inset 0 0 60px var(--rc2)}50%{box-shadow:inset 0 0 60px var(--rc),inset 0 0 120px var(--rc2)}100%{box-shadow:inset 0 0 30px var(--rc),inset 0 0 60px var(--rc2)}}@keyframes dangerVignette{0%{box-shadow:inset 0 0 50px #ff000044,inset 0 0 100px #ff000022}50%{box-shadow:inset 0 0 80px #ff000088,inset 0 0 150px #ff000044}100%{box-shadow:inset 0 0 50px #ff000044,inset 0 0 100px #ff000022}}@keyframes emberFloat{0%{transform:translateY(0) scale(1);opacity:.6}50%{opacity:1}100%{transform:translateY(-220px) translateX(20px) scale(0);opacity:0}}@keyframes sparkFlicker{0%{opacity:0}20%{opacity:1}40%{opacity:0}60%{opacity:.8}80%{opacity:0}100%{opacity:.5}}@keyframes gearSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}@keyframes debrisFall{0%{transform:translateY(-20px) rotate(0deg);opacity:.6}100%{transform:translateY(300px) rotate(180deg);opacity:0}}`;
   const F=lang==="zh"?"'Noto Sans SC','Press Start 2P',monospace":"'Press Start 2P',monospace";
   const F2="'Orbitron','Noto Sans SC',monospace";
   const W={width:"100%",maxWidth:700,margin:"0 auto",borderRadius:12,overflow:"hidden",fontFamily:"monospace",position:"relative"};
@@ -1290,7 +1322,7 @@ function Game() {
         <div style={{display:"flex",gap:10,justifyContent:"center",marginBottom:16}}>
           {BOSSES.map((b,i)=><div key={i} style={{width:32,height:32,borderRadius:"50%",background:`radial-gradient(circle,${b.color},${b.dark})`,border:`2px solid ${b.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,boxShadow:`0 0 10px ${b.color}33`}}>{b.emoji}</div>)}
         </div>
-        <button onPointerDown={(e)=>{e.preventDefault();if(!audioInitRef.current){AudioEngine.init();audioInitRef.current=true;AudioEngine.startTitleMusic();}AudioEngine.playClick();setScreen("select");}} style={{fontFamily:F,fontSize:lang==="zh"?13:12,background:"linear-gradient(180deg,#ff0044,#aa0022)",color:"#fff",border:"none",padding:"13px 32px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 30px #ff004466",animation:"pulse 1s infinite alternate",touchAction:"manipulation"}}>{t("startBtn")}</button>
+        <button onPointerDown={(e)=>{e.preventDefault();if(!audioInitRef.current){AudioEngine.init();audioInitRef.current=true;}AudioEngine.playClick();setScreen("select");}} style={{fontFamily:F,fontSize:lang==="zh"?13:12,background:"linear-gradient(180deg,#ff0044,#aa0022)",color:"#fff",border:"none",padding:"13px 32px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 30px #ff004466",animation:"pulse 1s infinite alternate",touchAction:"manipulation"}}>{t("startBtn")}</button>
         <div style={{fontFamily:F,fontSize:lang==="zh"?7:5,color:"#444",marginTop:10}}>{t("tagline")}</div>
         <div style={{marginTop:16,padding:"6px 10px",background:"rgba(255,255,255,0.03)",borderRadius:6}}>
           <div style={{fontFamily:F,fontSize:5,color:"#555",marginBottom:2}}>{t("copyright")}</div>
@@ -1353,7 +1385,7 @@ function Game() {
         ):(
           <div style={{textAlign:"center"}}>
             <div style={{fontFamily:F,fontSize:lang==="zh"?10:8,color:b.color,marginBottom:10,padding:"6px 12px",background:`${b.dark}44`,borderRadius:6,border:`1px solid ${b.color}44`,display:"inline-block",lineHeight:1.6}}>«{tObj(b.taunt)}»</div><br/>
-            <button onPointerDown={(e)=>{e.preventDefault();AudioEngine.playClick();initBattle();}} style={{fontFamily:F,fontSize:lang==="zh"?14:12,background:`linear-gradient(180deg,${b.color},${b.dark})`,color:"#fff",border:"none",padding:"12px 28px",borderRadius:8,cursor:"pointer",boxShadow:`0 0 25px ${b.color}44`,marginTop:6}}>{t("toBattle")}</button>
+            <button onPointerDown={(e)=>{e.preventDefault();AudioEngine.playBuzz();initBattle();}} style={{fontFamily:F,fontSize:lang==="zh"?14:12,background:`linear-gradient(180deg,${b.color},${b.dark})`,color:"#fff",border:"none",padding:"12px 28px",borderRadius:8,cursor:"pointer",boxShadow:`0 0 25px ${b.color}44`,marginTop:6}}>{t("toBattle")}</button>
           </div>
         )}
       </div>
@@ -1412,7 +1444,7 @@ function Game() {
 
         <div style={{fontFamily:F,fontSize:7,color:"#44ff88",marginBottom:10,animation:"fadeSlide 0.5s ease-out 1.5s both"}}>{t("passedStage")} {b.stage}/5 {t("passed")}</div>
         <div style={{display:"flex",gap:4,marginBottom:12,justifyContent:"center"}}>{BOSSES.map((_,i)=><div key={i} style={{width:36,height:5,borderRadius:3,background:i<=bossIdx?"#44ff88":"#333",transition:"background 0.3s",transitionDelay:`${1.6+i*0.1}s`}}/>)}</div>
-        <button onPointerDown={(e)=>{e.preventDefault();nextBoss();}} style={{fontFamily:F,fontSize:lang==="zh"?12:10,background:"linear-gradient(180deg,#44ff88,#119944)",color:"#fff",border:"none",padding:"11px 24px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 25px #44ff8844",animation:"fadeSlide 0.5s ease-out 1.8s both"}}>{t("nextStage")}</button>
+        <button onPointerDown={(e)=>{e.preventDefault();AudioEngine.playBuzz();nextBoss();}} style={{fontFamily:F,fontSize:lang==="zh"?12:10,background:"linear-gradient(180deg,#44ff88,#119944)",color:"#fff",border:"none",padding:"11px 24px",borderRadius:8,cursor:"pointer",boxShadow:"0 0 25px #44ff8844",animation:"fadeSlide 0.5s ease-out 1.8s both"}}>{t("nextStage")}</button>
       </div>
     </div>
   );}
@@ -1503,6 +1535,8 @@ function Game() {
   );}
 
   /* ═══ BATTLE ═══ */
+  const bossRage = bossIdx >= 2 && bHp > 0 && bHp < boss.maxHp * 0.3;
+  const playerDanger = player && pHp > 0 && pHp < player.maxHp * 0.3;
   return(
     <div style={{...W,background:`linear-gradient(180deg,${boss.arena.bg1},${boss.arena.bg2})`,...ss,transition:slowMo?"all 0.5s":"none"}}>
       <style>{css}</style>
@@ -1511,6 +1545,12 @@ function Game() {
       {specialFlash&&<div style={{position:"absolute",inset:0,background:specialFlash,opacity:0.7,pointerEvents:"none",zIndex:55,animation:"screenFlash 0.3s ease-out forwards"}}/>}
       {slowMo&&<div style={{position:"absolute",inset:0,boxShadow:"inset 0 0 120px rgba(0,0,0,0.7)",pointerEvents:"none",zIndex:44}}/>}
       {slowMo&&<div style={{position:"absolute",top:8,left:"50%",transform:"translateX(-50%)",fontFamily:F,fontSize:7,color:"#ffaa00",zIndex:60,letterSpacing:4,textShadow:"0 0 10px #ffaa00",animation:"pulse .3s infinite alternate"}}>{t("slowmo")}</div>}
+      {/* ── BOSS RAGE — pulsing edges in boss color ── */}
+      {bossRage&&<div style={{position:"absolute",inset:0,"--rc":`${boss.color}66`,"--rc2":`${boss.color}22`,animation:"ragePulse 0.6s ease-in-out infinite",pointerEvents:"none",zIndex:46}}/>}
+      {bossRage&&<div style={{position:"absolute",top:6,left:"50%",transform:"translateX(-50%)",fontFamily:F,fontSize:6,color:boss.color,zIndex:60,letterSpacing:3,textShadow:`0 0 8px ${boss.color}`,animation:"pulse .3s infinite alternate",whiteSpace:"nowrap"}}>⚠️ {lang==="ru"?"ЯРОСТЬ":lang==="zh"?"狂怒":"RAGE"} ⚠️</div>}
+      {/* ── PLAYER DANGER — red vignette + cracked glass ── */}
+      {playerDanger&&<div style={{position:"absolute",inset:0,animation:"dangerVignette 0.8s ease-in-out infinite",pointerEvents:"none",zIndex:47}}/>}
+      {playerDanger&&<svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",zIndex:48,opacity:0.25}} viewBox="0 0 640 700"><path d="M320 0L305 120L280 95L265 180L240 155L220 250L195 220L180 300L320 280L340 350L370 310L400 380L420 340L450 420L470 370L500 450L520 400L560 500" stroke="#fff" strokeWidth="1.5" fill="none"/><path d="M320 0L335 100L360 80L375 160L400 140L415 230L440 200L460 290" stroke="#fff" strokeWidth="1" fill="none" opacity="0.6"/><path d="M280 95L250 130L230 110L200 170" stroke="#fff" strokeWidth="0.8" fill="none" opacity="0.4"/><path d="M370 310L390 350L410 330L430 370L460 350" stroke="#fff" strokeWidth="0.8" fill="none" opacity="0.4"/></svg>}
       <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"4px 0 2px"}}>
         <span style={{fontFamily:F,fontSize:5,color:"#555",letterSpacing:2}}>⚙️ {tObj(boss.arena.name)}</span>
         <span style={{fontFamily:F,fontSize:5,color:boss.color}}>{t("stageOf")} {boss.stage}/5</span>
@@ -1522,6 +1562,12 @@ function Game() {
       </div>
       <div style={{position:"relative",height:280,background:`linear-gradient(180deg,transparent 55%,${boss.arena.floor} 100%)`,overflow:"hidden"}}>
         <div style={{position:"absolute",bottom:0,left:0,right:0,height:80,background:`repeating-linear-gradient(90deg,${boss.arena.floor}44 0px,${boss.arena.floor}44 1px,transparent 1px,transparent 40px),repeating-linear-gradient(0deg,${boss.arena.floor}44 0px,${boss.arena.floor}44 1px,transparent 1px,transparent 40px)`,transform:"perspective(300px) rotateX(60deg)",transformOrigin:"bottom",opacity:.3}}/>
+        {/* ── Arena decorations per boss ── */}
+        {boss.id==="furnace"&&<>{[...Array(8)].map((_,i)=><div key={`em${i}`} style={{position:"absolute",left:`${10+Math.random()*80}%`,bottom:0,width:3,height:3,borderRadius:"50%",background:i%2?"#ff6600":"#ff4400",animation:`emberFloat ${2+Math.random()*3}s linear infinite`,animationDelay:`${Math.random()*3}s`,opacity:0}}/>)}<div style={{position:"absolute",bottom:60,left:0,right:0,height:40,background:"linear-gradient(0deg,#ff440008,transparent)",pointerEvents:"none"}}/></>}
+        {boss.id==="brake"&&<>{[...Array(6)].map((_,i)=><div key={`sp${i}`} style={{position:"absolute",left:`${5+i*16}%`,top:`${20+Math.random()*40}%`,width:2,height:12+Math.random()*8,background:`linear-gradient(180deg,${i%2?"#aa44ff":"#cc88ff"},transparent)`,animation:`sparkFlicker ${0.3+Math.random()*0.5}s step-end infinite`,animationDelay:`${Math.random()*2}s`,borderRadius:1}}/>)}</>}
+        {boss.id==="welder"&&<>{[...Array(4)].map((_,i)=><div key={`ar${i}`} style={{position:"absolute",left:`${15+i*20}%`,top:`${30+Math.random()*30}%`,width:20,height:20,borderRadius:"50%",background:`radial-gradient(circle,${i%2?"#00ffcc22":"#66ffdd15"},transparent 70%)`,animation:`sparkFlicker ${0.5+Math.random()*0.8}s step-end infinite`,animationDelay:`${Math.random()*2}s`}}/>)}<div style={{position:"absolute",top:0,left:0,right:0,height:"100%",background:"linear-gradient(180deg,#00ffcc03,transparent 30%,transparent 70%,#00ffcc03)",pointerEvents:"none"}}/></>}
+        {boss.id==="center"&&<>{[...Array(4)].map((_,i)=><div key={`gr${i}`} style={{position:"absolute",left:`${8+i*22}%`,top:`${15+i*12}%`,fontSize:20+i*4,color:"#ff44aa08",animation:`gearSpin ${6+i*3}s linear infinite`,animationDirection:i%2?"reverse":"normal",pointerEvents:"none"}}>⚙</div>)}</>}
+        {boss.id==="wuhan"&&<>{[...Array(5)].map((_,i)=><div key={`db${i}`} style={{position:"absolute",left:`${Math.random()*90}%`,top:0,width:4+Math.random()*6,height:4+Math.random()*6,background:"#ff004412",borderRadius:2,animation:`debrisFall ${3+Math.random()*4}s linear infinite`,animationDelay:`${Math.random()*5}s`}}/>)}<div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"radial-gradient(ellipse at 80% 50%,#ff004408,transparent 60%)",pointerEvents:"none"}}/></>}
         {boss.id==="furnace"&&[...Array(5)].map((_,i)=><div key={`f${i}`} style={{position:"absolute",left:`${40+Math.random()*30}%`,bottom:20+Math.random()*40,width:4,height:4,borderRadius:"50%",background:"#ff6600",animation:`pulse ${.5+Math.random()}s infinite alternate`,opacity:.4}}/>)}
         {boss.id==="wuhan"&&<div style={{position:"absolute",top:5,left:"50%",transform:"translateX(-50%)",fontFamily:F,fontSize:5,color:"#ff004433",letterSpacing:2}}>{t("tons")}</div>}
         {energyCharge&&<div style={{position:"absolute",left:100,top:140,width:120,height:120,borderRadius:"50%",border:`3px solid ${player?.color||"#fff"}`,opacity:0.6,"--ec":player?.color||"#fff",animation:"energyPulse 0.4s infinite",pointerEvents:"none"}}/>}
